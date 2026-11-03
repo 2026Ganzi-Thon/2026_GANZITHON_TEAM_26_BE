@@ -1,0 +1,51 @@
+### 비밀값 / 로컬 설정 (절대 커밋 금지) ###
+.env
+.env.*
+!.env.example
+application-secret.yml
+application-*-secret.yml
+*.pem
+*.key
+
+### Gradle / 빌드 산출물 ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+out/
+bin/
+!**/src/main/**/out/
+!**/src/test/**/out/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse / STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### 로그 ###
+logs/
+*.log
+
+### Claude Code 개인 설정 (팀 공용 CLAUDE.md 는 커밋) ###
+.claude/settings.local.json
+CLAUDE.local.md

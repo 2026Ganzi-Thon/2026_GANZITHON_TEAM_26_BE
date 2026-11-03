@@ -1,0 +1,30 @@
+# 로컬 개발용 MySQL + Redis
+# 실행: docker compose -f docker-compose.local.yml up -d
+# 종료: docker compose -f docker-compose.local.yml down   (데이터까지 지우려면 down -v)
+# 서버 배포용 compose 는 별도로 관리한다.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: hanol-mysql
+    environment:
+      MYSQL_DATABASE: hanol
+      MYSQL_USER: hanol
+      MYSQL_PASSWORD: hanol
+      MYSQL_ROOT_PASSWORD: root
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - hanol-mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: hanol-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  hanol-mysql-data:

@@ -1,0 +1,25 @@
+#!/bin/sh
+# 푸시 전: main 브랜치 직접 푸시를 막고, 코드 스타일 검사와 테스트를 실행한다.
+# 급한 경우에만 git push --no-verify 로 건너뛸 수 있다.
+
+PROTECTED_BRANCH="refs/heads/main"
+
+while read local_ref local_sha remote_ref remote_sha; do
+	if [ "$remote_ref" = "$PROTECTED_BRANCH" ]; then
+		echo "[pre-push] main 브랜치에는 직접 푸시할 수 없습니다. dev 로 PR 을 올려주세요."
+		exit 1
+	fi
+done
+
+echo "[pre-push] spotlessCheck, checkstyleMain, test 를 실행합니다..."
+./gradlew spotlessCheck checkstyleMain test --quiet
+if [ $? -ne 0 ]; then
+	echo ""
+	echo "[pre-push] 검사에 실패해서 푸시를 중단합니다."
+	echo "  - 포맷 문제: ./gradlew spotlessApply 실행 후 다시 커밋"
+	echo "  - 스타일 문제: build/reports/checkstyle/main.html 확인"
+	echo "  - 테스트 실패: build/reports/tests/test/index.html 확인"
+	exit 1
+fi
+
+exit 0

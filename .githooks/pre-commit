@@ -1,0 +1,23 @@
+#!/bin/sh
+# 커밋 전: 커밋할 Java 파일을 Spotless 로 자동 정렬(네이버 컨벤션)하고 다시 stage 한다.
+
+STAGED_JAVA_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.java$')
+
+if [ -z "$STAGED_JAVA_FILES" ]; then
+	exit 0
+fi
+
+echo "[pre-commit] spotlessApply 로 코드 포맷을 정리합니다..."
+./gradlew spotlessApply --quiet
+if [ $? -ne 0 ]; then
+	echo "[pre-commit] spotlessApply 실패. 위 로그를 확인해주세요."
+	exit 1
+fi
+
+for file in $STAGED_JAVA_FILES; do
+	if [ -f "$file" ]; then
+		git add "$file"
+	fi
+done
+
+exit 0

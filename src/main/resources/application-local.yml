@@ -1,0 +1,19 @@
+# ===== 로컬(내 컴퓨터) 설정 =====
+# docker compose -f docker-compose.local.yml up -d 로 MySQL, Redis 를 띄운 뒤 실행한다.
+# 아래 기본값은 로컬 Docker 전용 값이라 레포에 올려도 괜찮다. 다른 값을 쓰려면 .env 에 적는다.
+
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:hanol}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USERNAME:hanol}
+    password: ${DB_PASSWORD:hanol}
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  jwt:
+    # 로컬 전용 키 (서버에서는 절대 사용 금지 - dev 서버는 JWT_SECRET 환경변수 필수)
+    secret: ${JWT_SECRET:2rQ9y1VxcGQ3pGg2uUEuVexmOfps5vCboWUiYHoVKuA=}

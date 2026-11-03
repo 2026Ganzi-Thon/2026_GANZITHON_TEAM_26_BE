@@ -1,0 +1,128 @@
+plugins {
+	id 'java'
+	id 'checkstyle'
+	id 'org.springframework.boot' version '4.1.2'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '8.7.0'
+}
+
+group = 'com.hanol'
+version = '0.0.1-SNAPSHOT'
+description = '한 올 - 2026 간지톤 26팀 백엔드'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	querydslVersion = '7.0'
+	jjwtVersion = '0.13.0'
+	springdocVersion = '3.2.0'
+}
+
+dependencies {
+	// Web, 검증
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// DB: JPA + MySQL + Flyway
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.flywaydb:flyway-mysql'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	// QueryDSL (OpenFeign 포크 - 기존 com.querydsl 은 유지보수 중단)
+	implementation "io.github.openfeign.querydsl:querydsl-jpa:${querydslVersion}"
+	annotationProcessor "io.github.openfeign.querydsl:querydsl-apt:${querydslVersion}:jpa"
+	annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+	// Redis (인증번호, 쿨타임, 로그아웃 토큰 등 만료가 필요한 데이터)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	// 인증: Spring Security + JWT
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+	// 메일 (회원가입 이메일 인증)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+	// 헬스체크
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// Swagger UI
+	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'com.h2database:h2'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// 실행 가능한 jar(bootJar)만 만들고 -plain.jar 는 만들지 않는다 (Dockerfile 에서 jar 하나만 복사하기 위함)
+tasks.named('jar') {
+	enabled = false
+}
+
+// ===== 코드 스타일: 네이버 캠퍼스 핵데이 Java 코딩 컨벤션 =====
+// https://naver.github.io/hackday-conventions-java/
+
+checkstyle {
+	toolVersion = '10.21.0'
+	configFile = file('config/checkstyle/naver-checkstyle-rules.xml')
+	configProperties = [suppressionFile: file('config/checkstyle/naver-checkstyle-suppressions.xml').absolutePath]
+	maxWarnings = 0
+}
+
+// 테스트 코드는 한글 메서드명 등을 허용하기 위해 checkstyle 검사에서 제외
+tasks.named('checkstyleTest') {
+	enabled = false
+}
+
+spotless {
+	java {
+		target 'src/**/*.java'
+		eclipse().configFile('config/spotless/naver-eclipse-formatter.xml')
+		importOrder('\\#', 'java', 'javax', 'org', 'net', 'com', '')
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
+}
+
+// ===== Git Hooks: 빌드할 때 .githooks 폴더를 Git Hooks 경로로 자동 등록 =====
+tasks.register('installGitHooks', Exec) {
+	description = 'Git Hooks 경로를 .githooks 로 설정합니다.'
+	group = 'git hooks'
+	commandLine 'git', 'config', 'core.hooksPath', '.githooks'
+	ignoreExitValue = true
+	onlyIf { file('.git').exists() }
+}
+
+tasks.named('compileJava') {
+	dependsOn 'installGitHooks'
+}

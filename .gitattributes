@@ -1,0 +1,9 @@
+# 줄바꿈을 LF 로 통일 (Windows 에서도 Git Hooks·gradlew 가 깨지지 않도록)
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.jar binary
+*.png binary
+*.jpg binary

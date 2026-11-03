@@ -1,0 +1,31 @@
+#!/bin/sh
+# 커밋 메시지 규칙 검사
+# 형식: <타입>: <제목>   예) feat: 한 올 보내기 API 구현 (#12)
+# 타입: feat, fix, refactor, style, docs, test, chore, build, ci, perf, rename, remove, hotfix
+
+COMMIT_MSG_FILE=$1
+FIRST_LINE=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Merge / Revert 커밋은 통과
+if echo "$FIRST_LINE" | grep -Eq '^(Merge|Revert) '; then
+	exit 0
+fi
+
+PATTERN='^(feat|fix|refactor|style|docs|test|chore|build|ci|perf|rename|remove|hotfix)(\([^)]+\))?: .+'
+
+if echo "$FIRST_LINE" | grep -Eq "$PATTERN"; then
+	exit 0
+fi
+
+echo ""
+echo "[commit-msg] 커밋 메시지 형식이 올바르지 않습니다."
+echo ""
+echo "  입력한 메시지: $FIRST_LINE"
+echo ""
+echo "  형식: <타입>: <제목>"
+echo "  예시: feat: 한 올 보내기 API 구현 (#12)"
+echo "        fix: 온기 지도 인원 중복 집계 수정 (#20)"
+echo ""
+echo "  타입: feat, fix, refactor, style, docs, test, chore, build, ci, perf, rename, remove, hotfix"
+echo ""
+exit 1
