@@ -1,0 +1,48 @@
+name: 버그 리포트
+description: 버그를 신고합니다
+title: "[Fix] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 버그 설명
+      description: 어떤 문제가 발생했는지 설명해 주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 방법
+      description: 문제를 재현하는 순서를 적어 주세요.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: 에러 로그나 스택 트레이스가 있다면 함께 첨부해 주세요.
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 환경
+      description: 브랜치, 실행 프로파일, OS 등
+      placeholder: "dev 브랜치 / local 프로파일 / Windows 11"
+    validations:
+      required: false
