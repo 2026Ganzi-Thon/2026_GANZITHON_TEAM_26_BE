@@ -13,7 +13,6 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      # 테이블은 Flyway(SQL 파일)로만 만든다. JPA 는 엔티티와 테이블이 맞는지 검사만 한다.
       ddl-auto: validate
     properties:
       hibernate:
@@ -44,6 +43,10 @@ spring:
           starttls:
             enable: true
 
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}] %X{method:-} %X{uri:-}"
+
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
@@ -61,14 +64,16 @@ management:
       enabled: false
 
 springdoc:
+  api-docs:
+    enabled: false
   swagger-ui:
     path: /swagger-ui.html
-    # Swagger UI 상단 드롭다운에서 선택
     urls:
       - name: "1. API 명세 (설계용 YAML)"
         url: /docs/openapi.yaml
       - name: "2. 구현된 API (코드에서 자동 생성)"
         url: /v3/api-docs
+    enabled: false
 
 app:
   jwt:
