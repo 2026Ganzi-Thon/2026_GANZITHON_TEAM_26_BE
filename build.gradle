@@ -88,29 +88,17 @@ tasks.named('jar') {
 	enabled = false
 }
 
-// ===== 코드 스타일: 네이버 캠퍼스 핵데이 Java 코딩 컨벤션 =====
-// https://naver.github.io/hackday-conventions-java/
+// ===== 코드 스타일: Google Java Format =====
 
 checkstyle {
-	toolVersion = '10.21.0'
-	configFile = file('config/checkstyle/naver-checkstyle-rules.xml')
-	configProperties = [suppressionFile: file('config/checkstyle/naver-checkstyle-suppressions.xml').absolutePath]
-	maxWarnings = 0
-}
-
-// 테스트 코드는 한글 메서드명 등을 허용하기 위해 checkstyle 검사에서 제외
-tasks.named('checkstyleTest') {
-	enabled = false
+	toolVersion = '13.8.0'
+	configFile = file('config/checkstyle/google_checks.xml')
 }
 
 spotless {
 	java {
-		target 'src/**/*.java'
-		eclipse().configFile('config/spotless/naver-eclipse-formatter.xml')
-		importOrder('\\#', 'java', 'javax', 'org', 'net', 'com', '')
+		googleJavaFormat()
 		removeUnusedImports()
-		trimTrailingWhitespace()
-		endWithNewline()
 	}
 }
 

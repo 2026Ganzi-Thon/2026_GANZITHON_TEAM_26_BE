@@ -20,7 +20,7 @@
 | 캐시/임시 데이터 | Redis |
 | 인증 | Spring Security + JWT (jjwt), Access/Refresh 토큰 |
 | 문서 | springdoc-openapi (Swagger UI) + 설계용 `openapi.yaml` |
-| 코드 스타일 | 네이버 핵데이 Java 컨벤션 (Checkstyle + Spotless) |
+| 코드 스타일 | Google Java Format (Checkstyle + Spotless) |
 
 > Spring Boot 4 / Jackson 3 주의: Jackson 패키지는 `tools.jackson.*` 이다. (`com.fasterxml.jackson.databind` 아님)
 > 단, 어노테이션(`@JsonInclude` 등)은 기존처럼 `com.fasterxml.jackson.annotation.*` 이다.
@@ -104,8 +104,8 @@ domain/cheer
 - 새 환경변수를 추가하면 `.env.example` 에도 (값 없이) 추가하고 PR 에 적는다.
 
 ### 코드 스타일
-- 네이버 컨벤션: **탭 들여쓰기**, 한 줄 최대 120자, import 순서 static → java → javax → org → net → com → 그 외
-- 커밋할 때 pre-commit 훅이 `spotlessApply` 로 자동 정렬한다. 직접 돌리려면 `./gradlew spotlessApply`
+- Google Java Format: **스페이스 2칸 들여쓰기**, 한 줄 최대 100자, import 자동 정렬
+- 커밋할 때 pre-commit 훅이 `spotlessCheck` 로 검사한다. 포맷 오류 시 `./gradlew spotlessApply` 실행
 - 와일드카드 import(`*`) 금지
 
 ## Git 규칙

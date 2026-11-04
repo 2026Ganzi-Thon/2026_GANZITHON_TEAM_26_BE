@@ -1,0 +1,30 @@
+name: Config
+description: 프로젝트 설정, 의존성, 서버·배포·CI/CD 작업
+title: "[CONFIG] "
+labels: ["config"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 설정 내용
+      description: 무엇을 설정/변경하는지 작성해주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: todo
+    attributes:
+      label: 할 일
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+        required: true
+
+  - type: textarea
+    id: notice
+    attributes:
+      label: 팀원이 알아야 할 점
+      description: pull로 변경되지 않는 사항을 작성해주세요. (새 환경변수 추가, 로컬 yml 수정)
+    validations:
+      required: false
