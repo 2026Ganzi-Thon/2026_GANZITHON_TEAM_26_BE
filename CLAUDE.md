@@ -111,14 +111,19 @@ domain/cheer
 ## Git 규칙
 
 ### 브랜치
-- `main`: 배포 브랜치. 직접 푸시 금지(pre-push 훅이 막음), `dev` 에서 PR 로만 머지
+- `main`: 배포 브랜치. 직접 푸시 금지(훅이 막지 않으므로 주의), `dev` 에서 PR 로만 머지
 - `dev`: 개발 통합 브랜치. 기능 브랜치는 여기서 따고, 여기로 PR
 - 기능 브랜치: `{타입}/#{이슈번호}-{간단한-설명}` 예) `feat/#12-cheer-send`, `fix/#20-map-count`
 
 ### 커밋 메시지 (commit-msg 훅이 검사)
 ```
-<타입>: <제목> (#이슈번호)
+<타입>(<범위>): <제목>
 ```
+- 범위(scope)는 선택. 예) `feat(auth): 로그인 API 추가`, `fix: 온기 지도 인원 중복 집계 수정`
+- 이슈 번호는 제목 끝에 붙여도 된다. 예) `feat(cheer): 한 올 보내기 API 구현 (#12)`
+- 중요한 변경은 `feat!:` 또는 `feat(auth)!:` 처럼 `!` 로 표시
+- Merge / Revert 커밋은 검사하지 않는다
+
 | 타입 | 의미 |
 | --- | --- |
 | feat | 새 기능 |
@@ -128,12 +133,9 @@ domain/cheer
 | docs | 문서 |
 | test | 테스트 |
 | chore | 빌드 설정, 패키지 등 기타 |
-| build / ci | 빌드 시스템 / CI·CD |
-| perf | 성능 개선 |
-| rename / remove | 파일·폴더 이름 변경 / 삭제 |
-| hotfix | 급한 버그 수정 |
+| ci | CI·CD |
 
-예) `feat: 한 올 보내기 API 구현 (#12)`
+위 8개 외의 타입(build, perf, rename, remove, hotfix 등)은 훅에서 막힌다.
 
 ### 작업 순서
 1. 이슈 생성 (템플릿: Feature / Bug / Config)
