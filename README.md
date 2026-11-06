@@ -70,18 +70,19 @@ docker run -p 8080:8080 --env-file .env -e SPRING_PROFILES_ACTIVE=dev hanol-serv
 브랜치 전략, 커밋 메시지 규칙, 패키지 구조, 코딩 컨벤션은 [`CLAUDE.md`](CLAUDE.md) 에 정리되어 있습니다.
 
 - 브랜치: `main`(배포) ← `dev`(개발) ← `feat/#이슈번호-설명`
-- 커밋: `feat: 한 올 보내기 API 구현 (#12)`
-- 코드 스타일: [네이버 핵데이 Java 컨벤션](https://naver.github.io/hackday-conventions-java/)
+- 커밋: `feat(cheer): 한 올 보내기 API 구현 (#12)`
+- 코드 스타일: [Google Java Format](https://github.com/google/google-java-format) (Spotless + Checkstyle)
 
 ### Git Hooks
 처음 한 번 `./gradlew build` (또는 IntelliJ 에서 실행)하면 `.githooks` 폴더가 자동으로 Git Hooks 로 등록됩니다.
 
 | Hook | 하는 일 |
 | --- | --- |
-| `pre-commit` | 커밋할 Java 파일을 Spotless 로 자동 정렬 |
+| `pre-commit` | 코드 포맷 검사 (`spotlessCheck`). 실패하면 `./gradlew spotlessApply` 실행 후 다시 커밋 |
 | `commit-msg` | 커밋 메시지 형식 검사 |
-| `pre-push` | `main` 직접 푸시 차단, 포맷·스타일 검사, 테스트 실행 |
+| `pre-push` | 코드 스타일 검사 (`checkstyleMain`, `checkstyleTest`) |
 
 수동 등록: `git config core.hooksPath .githooks`
 
-> 처음 받은 뒤 `./gradlew build` 에서 Spotless 포맷 오류(`spotlessCheck`)가 나면 `./gradlew spotlessApply` 를 실행하고 `style: 코드 포맷 적용` 으로 커밋해 주세요.
+> 훅은 검사만 하고 코드를 고치지 않습니다. 포맷 오류가 나면 `./gradlew spotlessApply` 를 실행해서 자동 정리한 뒤 다시 커밋해 주세요.
+> `main` 직접 푸시는 훅이 막지 않으니 주의해 주세요.
