@@ -31,6 +31,7 @@ public class GlobalExceptionHandler {
         exception.getBindingResult().getFieldErrors().stream()
             .map(error -> new FieldErrorDetail(error.getField(), error.getDefaultMessage()))
             .toList();
+    log.info("Validation failed: {}", errors);
     CommonErrorCode errorCode = CommonErrorCode.INVALID_INPUT;
     return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode, errors));
   }
@@ -48,12 +49,14 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
   public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
       HttpRequestMethodNotSupportedException exception) {
+    log.info("Method not supported: {}", exception.getMessage());
     return toResponse(CommonErrorCode.METHOD_NOT_ALLOWED);
   }
 
   @ExceptionHandler(NoResourceFoundException.class)
   public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(
       NoResourceFoundException exception) {
+    log.info("No resource found: {}", exception.getMessage());
     return toResponse(CommonErrorCode.NOT_FOUND);
   }
 

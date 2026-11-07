@@ -8,8 +8,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum AuthErrorCode implements ErrorCode {
-  INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_1", "유효하지 않은 토큰입니다."),
-  EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_2", "만료된 토큰입니다.");
+  INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "401_UNAUTHORIZED", "유효하지 않은 토큰입니다."),
+  EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "401_TOKEN_EXPIRED", "만료된 토큰입니다.");
 
   private final HttpStatus status;
   private final String code;
