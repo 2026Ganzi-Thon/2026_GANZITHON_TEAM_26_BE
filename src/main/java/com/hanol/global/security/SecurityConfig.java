@@ -35,7 +35,6 @@ public class SecurityConfig {
 
   private final JwtProvider jwtProvider;
   private final JwtAuthenticationEntryPoint authenticationEntryPoint;
-  private final JwtAccessDeniedHandler accessDeniedHandler;
   private final CorsProperties corsProperties;
 
   @Bean
@@ -49,10 +48,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             auth -> auth.requestMatchers(PUBLIC_URLS).permitAll().anyRequest().authenticated())
         .exceptionHandling(
-            exception ->
-                exception
-                    .authenticationEntryPoint(authenticationEntryPoint)
-                    .accessDeniedHandler(accessDeniedHandler))
+            exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
         .addFilterBefore(
             new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
     return http.build();

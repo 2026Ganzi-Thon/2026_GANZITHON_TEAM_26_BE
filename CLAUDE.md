@@ -74,7 +74,9 @@ domain/cheer
 
 ### 에러 코드
 - 도메인마다 `XxxErrorCode` enum 이 `ErrorCode` 를 구현한다. (예시: `global/security/AuthErrorCode`)
-- 코드 형식: `{대분류}{HTTP상태}_{번호}` 예) `BLK400_1`, `USR404_1`
+- 코드 형식: `{HTTP상태}_{이름}` 예) `400_BAD_REQUEST`, `401_TOKEN_EXPIRED`, `409_EMAIL_DUPLICATED`
+- 프론트에는 `code` 와 `message` 만 내려간다. 어느 도메인의 에러인지는 enum 이름(XxxErrorCode)으로 백엔드에서만 구분한다.
+- 토큰: 없음·위조·손상은 `401_UNAUTHORIZED`(다시 로그인), 만료는 `401_TOKEN_EXPIRED`(재발급 시도)
 - 메시지는 사용자에게 그대로 보여줄 수 있는 한국어 문장으로 쓴다.
 
 ### 엔티티 / DB
