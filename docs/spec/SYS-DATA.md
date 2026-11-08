@@ -1,7 +1,4 @@
 # SYS-DATA 기능 명세
-작성자: (자동 초안 — 검토 필요)
-
----
 
 ## SYS-DATA-001 지도 원본 집계 전환
 **추후 구현 - P2**
@@ -29,8 +26,6 @@
 | Status Code | Status Name | Description |
 | --- | --- | --- |
 | 500 | INTERNAL_SERVER_ERROR | 배치 실행 중 오류(로그로만 기록, 사용자 노출 없음) |
-
----
 
 ## SYS-DATA-002 신고 데이터 파기
 **추후 구현 - P2**
