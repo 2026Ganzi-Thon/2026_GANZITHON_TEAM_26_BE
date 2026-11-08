@@ -1,0 +1,69 @@
+package com.hanol.domain.auth.service;
+
+import com.hanol.domain.auth.repository.RefreshTokenRepository;
+import com.hanol.global.exception.BusinessException;
+import com.hanol.global.security.AccessTokenBlacklist;
+import com.hanol.global.security.AuthErrorCode;
+import com.hanol.global.security.JwtProperties;
+import com.hanol.global.security.JwtProvider;
+import com.hanol.global.security.TokenType;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+/** 토큰 발급(로그인), 재발급(USR-AUTH-006), 로그아웃(USR-AUTH-007). Redis 만 사용하므로 JPA 트랜잭션을 걸지 않는다. */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TokenService {
+
+  private final JwtProvider jwtProvider;
+  private final JwtProperties jwtProperties;
+  private final RefreshTokenRepository refreshTokenRepository;
+  private final AccessTokenBlacklist accessTokenBlacklist;
+
+  /** Access·Refresh 토큰을 발급하고 Refresh 토큰을 Redis 에 저장한다. (기존 Refresh 토큰은 덮어씀) */
+  public TokenPair issue(Long userId) {
+    String accessToken = jwtProvider.createAccessToken(userId);
+    String refreshToken = jwtProvider.createRefreshToken(userId);
+    refreshTokenRepository.save(userId, refreshToken, jwtProperties.refreshTokenValidity());
+    return new TokenPair(accessToken, refreshToken);
+  }
+
+  /**
+   * 새 Access 토큰을 발급한다. Refresh 토큰은 교체하지 않는다(Rotation 미적용).
+   *
+   * <p>Refresh 토큰이 만료된 경우도 401_TOKEN_EXPIRED 가 아니라 401_UNAUTHORIZED 로 응답한다. 클라이언트는 TOKEN_EXPIRED 를
+   * 받으면 재발급을 시도하므로, 재발급 API 에서 그 코드를 주면 재발급을 무한 반복하게 된다.
+   */
+  public String reissue(String refreshToken) {
+    if (!StringUtils.hasText(refreshToken)) {
+      throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+    }
+
+    Long userId;
+    try {
+      userId = jwtProvider.getUserId(refreshToken, TokenType.REFRESH);
+    } catch (BusinessException exception) {
+      throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+    }
+
+    String savedToken =
+        refreshTokenRepository
+            .find(userId)
+            .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_TOKEN));
+    if (!savedToken.equals(refreshToken)) {
+      throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+    }
+
+    log.info("Access 토큰 재발급: userId={}", userId);
+    return jwtProvider.createAccessToken(userId);
+  }
+
+  public void logout(Long userId, String accessToken) {
+    accessTokenBlacklist.add(accessToken, jwtProvider.getRemainingValidity(accessToken));
+    refreshTokenRepository.delete(userId);
+    log.info("로그아웃: userId={}", userId);
+  }
+}
