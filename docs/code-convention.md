@@ -6,8 +6,8 @@ com.hanol
 ├── domain                 # 기능(도메인)별 패키지
 │   ├── auth               # 회원가입, 이메일 인증, 로그인/로그아웃, 토큰 재발급
 │   ├── user               # 회원 정보, 마이 탭
-│   ├── mood               # 마음 고르기(감정 카드), 사연, 기록 캘린더
-│   ├── cheer              # 한 올 보내기/받기, 신고
+│   ├── mood               # 마음 고르기(감정 도안), 사연, 기록 캘린더
+│   ├── cheer              # 패치 선물하기/받기, 신고
 │   ├── blanket            # 담요(30칸), 지난 담요
 │   ├── interaction        # 온기 지도 인원, 함께 쉬는 방
 │   └── alert              # 도움 요청(위기 안내)
@@ -99,6 +99,7 @@ global/exception/
 - 로그인 없이 열어야 하는 API는 `SecurityConfig.PUBLIC_URLS`에 추가한다
 - 요청 DTO는 `record` + Bean Validation, 컨트롤러에서 `@Valid`
 - API를 추가·변경하면 `src/main/resources/static/docs/openapi.yaml`과 맞춘다. 명세의 원본은 이 YAML이다.
+- **설계용 YAML은 도메인별로 파일을 분리한다.** `openapi.yaml`(info/tags/security, paths는 `$ref`로만 연결) + `components/common.yaml`(공통 응답 스키마) + `paths/{도메인-동작}.yaml`(`docs/spec/{도메인-동작}.md`와 1:1 대응하는 실제 경로·요청/응답 스키마) 구조. 새 도메인을 추가할 땐 `paths/{도메인-동작}.yaml`을 만들고 `openapi.yaml`의 `paths:`에 `$ref` 한 줄만 추가한다.
 - 성공 응답만 명시한다. 에러 응답(`4xx`, `5xx`)은 문서화하지 않는다
 
 ## 코드 스타일
