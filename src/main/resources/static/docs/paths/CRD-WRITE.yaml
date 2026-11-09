@@ -1,0 +1,78 @@
+moodStoryCheck:
+  post:
+    tags: [CRD]
+    operationId: CRD-WRITE-002
+    summary: 사연 작성(위기 표현 검사)
+    description: 서버에 영구 저장하지 않는다 — 통과하면 클라이언트가 내용을 들고 있다가 CRD-WRITE-003(마음 기록 저장) 때 함께 보낸다. 위기 표현 감지도 예외가 아닌 200 정상 분기.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/StoryCheckRequest"
+    responses:
+      "200":
+        description: 검사 완료(위기 표현 포함 여부와 무관하게 200)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/StoryCheckData"
+
+schemas:
+  StoryCheckRequest:
+    type: object
+    required: [content]
+    properties:
+      content:
+        type: string
+        maxLength: 300
+        example: 오늘 하루 많이 지쳤어요.
+
+  StoryCheckData:
+    type: object
+    properties:
+      crisisDetected:
+        type: boolean
+        description: true면 위기 안내 화면([[ALRT-HELP-002]])으로 안내하되, 사연 자체는 그대로 들고 있던 흐름을 유지한다.
+
+  MoodRecordCreateRequest:
+    type: object
+    required: [emotions]
+    properties:
+      emotions:
+        type: array
+        minItems: 1
+        maxItems: 2
+        items:
+          type: string
+        example: [SAD]
+      story:
+        type: string
+        maxLength: 300
+        nullable: true
+
+  MoodRecordCreateData:
+    type: object
+    properties:
+      recordId:
+        type: integer
+        format: int64
+      emotions:
+        type: array
+        items:
+          type: string
+      recordedAt:
+        type: string
+        format: date-time
+      todayCount:
+        type: integer
+        description: 오늘 몇 번째 기록인지(1부터 시작)
+      remainingSendableCount:
+        type: integer
+        nullable: true
+        description: 사연이 포함된 경우에만 갱신된 "오늘 보낼 수 있는 개수"가 내려온다([[BLK-SEND-001]])

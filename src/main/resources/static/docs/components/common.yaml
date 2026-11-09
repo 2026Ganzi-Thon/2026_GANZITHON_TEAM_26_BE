@@ -1,0 +1,25 @@
+SuccessNoData:
+  type: object
+  properties:
+    message:
+      type: string
+      example: success
+
+SuccessWrapper:
+  type: object
+  properties:
+    message:
+      type: string
+      example: success
+    data:
+      type: object
+
+Error:
+  type: object
+  properties:
+    code:
+      type: string
+      example: INVALID_INPUT
+    message:
+      type: string
+      example: 요청값이 올바르지 않습니다.
