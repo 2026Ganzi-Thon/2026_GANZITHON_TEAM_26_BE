@@ -1,0 +1,92 @@
+moodCalendar:
+  get:
+    tags: [CRD]
+    operationId: CRD-VIEW-001
+    summary: 기록 캘린더 조회
+    description: 날짜 클릭 시 "그날 남긴 것 있음/없음"은 이 응답의 날짜 목록으로 클라이언트가 판단한다(별도 호출 없음).
+    parameters:
+      - name: yearMonth
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          example: "2026-11"
+    responses:
+      "200":
+        description: 해당 월의 기록 있는 날짜 목록
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/MoodCalendarData"
+
+schemas:
+  MoodCalendarData:
+    type: object
+    properties:
+      recordedDates:
+        type: array
+        items:
+          type: string
+          format: date
+        example: ["2026-11-01", "2026-11-03"]
+
+  MoodDayListData:
+    type: object
+    properties:
+      sentPatchCount:
+        type: integer
+        nullable: true
+        description: 그날 보낸 패치 개수. 보낸 적 없으면 null(문구 생략)
+      records:
+        type: array
+        items:
+          $ref: "#/schemas/MoodDayRecordSummary"
+
+  MoodDayRecordSummary:
+    type: object
+    properties:
+      recordId:
+        type: integer
+        format: int64
+      recordedAt:
+        type: string
+        format: date-time
+      emotions:
+        type: array
+        items:
+          type: string
+      hasStory:
+        type: boolean
+
+  MoodDetailData:
+    type: object
+    properties:
+      emotions:
+        type: array
+        items:
+          type: string
+      patches:
+        type: array
+        items:
+          $ref: "#/schemas/MoodDetailPatchStatus"
+      story:
+        type: string
+        nullable: true
+
+  MoodDetailPatchStatus:
+    type: object
+    properties:
+      emotion:
+        type: string
+      status:
+        type: string
+        enum: [RECEIVED, NOT_RECEIVED, DEFAULT_COMFORT]
+      message:
+        type: string
+        nullable: true

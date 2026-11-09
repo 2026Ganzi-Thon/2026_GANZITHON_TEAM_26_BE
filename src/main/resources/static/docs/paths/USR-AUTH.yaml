@@ -1,0 +1,202 @@
+signup:
+  post:
+    tags: [USR]
+    operationId: USR-AUTH-001
+    summary: 회원가입
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/SignupRequest"
+    responses:
+      "201":
+        description: 회원가입 완료
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/SuccessNoData"
+
+emailVerificationSend:
+  post:
+    tags: [USR]
+    operationId: USR-AUTH-002-SEND
+    summary: 이메일 인증번호 발송
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/EmailCodeSendRequest"
+    responses:
+      "200":
+        description: 인증번호 발송 완료
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/SuccessNoData"
+
+emailVerificationConfirm:
+  post:
+    tags: [USR]
+    operationId: USR-AUTH-002-VERIFY
+    summary: 이메일 인증번호 확인
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/EmailCodeVerifyRequest"
+    responses:
+      "200":
+        description: 인증 완료
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/SuccessNoData"
+
+login:
+  post:
+    tags: [USR]
+    operationId: USR-AUTH-003
+    summary: 로그인
+    description: 5회 연속 실패 시 5분 잠금(423 LOCKED)되는 판단을 이 요청 안에서 함께 처리한다([[USR-AUTH-004]] 로직 포함).
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/LoginRequest"
+    responses:
+      "200":
+        description: 로그인 성공
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/LoginData"
+
+tokenRefresh:
+  post:
+    tags: [USR]
+    operationId: USR-AUTH-006
+    summary: Access Token 재발급
+    description: Refresh Token Rotation 미적용 — Refresh Token은 교체되지 않고 그대로 유지된다.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/TokenRefreshRequest"
+    responses:
+      "200":
+        description: Access Token 재발급 완료
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/TokenRefreshData"
+
+logout:
+  post:
+    tags: [USR]
+    operationId: USR-AUTH-007
+    summary: 로그아웃
+    responses:
+      "200":
+        description: 로그아웃 처리 완료
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/SuccessNoData"
+
+schemas:
+  SignupRequest:
+    type: object
+    required: [email, password, agreements]
+    properties:
+      email:
+        type: string
+        format: email
+        example: user@example.com
+      password:
+        type: string
+        minLength: 8
+        maxLength: 20
+        example: Password1!
+      agreements:
+        type: array
+        items:
+          type: string
+          enum: [TERMS_OF_SERVICE, PRIVACY_POLICY, USAGE_PRINCIPLES]
+        example: [TERMS_OF_SERVICE, PRIVACY_POLICY, USAGE_PRINCIPLES]
+
+  EmailCodeSendRequest:
+    type: object
+    required: [email]
+    properties:
+      email:
+        type: string
+        format: email
+        example: user@example.com
+
+  EmailCodeVerifyRequest:
+    type: object
+    required: [email, code]
+    properties:
+      email:
+        type: string
+        format: email
+        example: user@example.com
+      code:
+        type: string
+        pattern: "^[0-9]{6}$"
+        example: "123456"
+
+  LoginRequest:
+    type: object
+    required: [email, password]
+    properties:
+      email:
+        type: string
+        format: email
+        example: user@example.com
+      password:
+        type: string
+        example: Password1!
+
+  LoginData:
+    type: object
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+      isOnboardingCompleted:
+        type: boolean
+
+  TokenRefreshRequest:
+    type: object
+    required: [refreshToken]
+    properties:
+      refreshToken:
+        type: string
+
+  TokenRefreshData:
+    type: object
+    properties:
+      accessToken:
+        type: string
