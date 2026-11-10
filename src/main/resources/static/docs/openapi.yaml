@@ -1,151 +1,165 @@
 openapi: 3.0.3
 info:
-  title: 패치 API
-  description: 2026 간지톤 26팀 백엔드 API 설계 문서
-  version: v1
+    title: 패치 API
+    description: 2026 간지톤 26팀 백엔드 API 설계 문서
+    version: v1
 servers:
-  - url: http://localhost:8080
-    description: 로컬
-  - url: https://{서버주소}
-    description: 개발 서버
+    - url: http://localhost:8080
+      description: 로컬
+    - url: https://{서버주소}
+      description: 개발 서버
 tags:
-  - name: USR
-    description: 유저, 인증
-  - name: CRD
-    description: 마음 기록, 감정 도안
-  - name: BLK
-    description: 패치 선물하기/받기, 담요
-  - name: ITR
-    description: 온기 지도, 함께 쉬는 방
-  - name: ALRT
-    description: 도움 요청
+    - name: USR
+      description: 유저, 인증
+    - name: CRD
+      description: 마음 기록, 감정 도안
+    - name: BLK
+      description: 패치 선물하기/받기, 담요
+    - name: ITR
+      description: 온기 지도, 함께 쉬는 방
+    - name: ALRT
+      description: 도움 요청
 security:
-  - bearerAuth: []
+    - bearerAuth: []
 
 paths:
-  /api/v1/auth/signup:
-    $ref: "./paths/USR-AUTH.yaml#/signup"
-  /api/v1/auth/email-verifications:
-    $ref: "./paths/USR-AUTH.yaml#/emailVerificationSend"
-  /api/v1/auth/email-verifications/confirm:
-    $ref: "./paths/USR-AUTH.yaml#/emailVerificationConfirm"
-  /api/v1/auth/login:
-    $ref: "./paths/USR-AUTH.yaml#/login"
-  /api/v1/auth/token/refresh:
-    $ref: "./paths/USR-AUTH.yaml#/tokenRefresh"
-  /api/v1/auth/logout:
-    $ref: "./paths/USR-AUTH.yaml#/logout"
+    /api/v1/auth/signup:
+        $ref: './paths/USR-AUTH.yaml#/signup'
+    /api/v1/auth/email-verifications:
+        $ref: './paths/USR-AUTH.yaml#/emailVerificationSend'
+    /api/v1/auth/email-verifications/confirm:
+        $ref: './paths/USR-AUTH.yaml#/emailVerificationConfirm'
+    /api/v1/auth/login:
+        $ref: './paths/USR-AUTH.yaml#/login'
+    /api/v1/auth/token/refresh:
+        $ref: './paths/USR-AUTH.yaml#/tokenRefresh'
+    /api/v1/auth/logout:
+        $ref: './paths/USR-AUTH.yaml#/logout'
 
-  /api/v1/moods/stories:
-    $ref: "./paths/CRD-WRITE.yaml#/moodStoryCheck"
-  /api/v1/moods/calendar:
-    $ref: "./paths/CRD-VIEW.yaml#/moodCalendar"
+    /api/v1/moods/stories:
+        $ref: './paths/CRD-WRITE.yaml#/moodStoryCheck'
+    /api/v1/moods/calendar:
+        $ref: './paths/CRD-VIEW.yaml#/moodCalendar'
 
-  # Operation 객체는 $ref를 지원하지 않아 경로 전체를 한 파일로 $ref할 수 없다.
-  # CRD-WRITE-003/CRD-VIEW-002, CRD-VIEW-003/CRD-DEL-001처럼 경로를 공유하는 경우만 여기서 메서드별로 합친다.
-  /api/v1/moods:
-    post:
-      tags: [CRD]
-      operationId: CRD-WRITE-003
-      summary: 마음 기록 저장
-      description: 감정 1~2개와(선택) CRD-WRITE-002에서 임시 보관한 사연을 함께 저장한다.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "./paths/CRD-WRITE.yaml#/schemas/MoodRecordCreateRequest"
-      responses:
-        "201":
-          description: 마음 기록 저장 완료
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "./components/common.yaml#/SuccessWrapper"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "./paths/CRD-WRITE.yaml#/schemas/MoodRecordCreateData"
-    get:
-      tags: [CRD]
-      operationId: CRD-VIEW-002
-      summary: 그날 기록 목록 조회
-      parameters:
-        - name: date
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-            example: "2026-11-04"
-      responses:
-        "200":
-          description: 그날의 기록 목록
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "./components/common.yaml#/SuccessWrapper"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "./paths/CRD-VIEW.yaml#/schemas/MoodDayListData"
+    /api/v1/moods:
+        post:
+            tags: [CRD]
+            operationId: CRD-WRITE-003
+            summary: 마음 기록 저장
+            description: 감정 1~2개와(선택) CRD-WRITE-002에서 임시 보관한 사연을 함께 저장한다.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: './paths/CRD-WRITE.yaml#/schemas/MoodRecordCreateRequest'
+            responses:
+                '201':
+                    description: 마음 기록 저장 완료
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: './components/common.yaml#/SuccessWrapper'
+                                    - type: object
+                                      properties:
+                                          data:
+                                              $ref: './paths/CRD-WRITE.yaml#/schemas/MoodRecordCreateData'
+        get:
+            tags: [CRD]
+            operationId: CRD-VIEW-002
+            summary: 그날 기록 목록 조회
+            parameters:
+                - name: date
+                  in: query
+                  required: true
+                  schema:
+                      type: string
+                      format: date
+                      example: '2026-11-04'
+            responses:
+                '200':
+                    description: 그날의 기록 목록
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: './components/common.yaml#/SuccessWrapper'
+                                    - type: object
+                                      properties:
+                                          data:
+                                              $ref: './paths/CRD-VIEW.yaml#/schemas/MoodDayListData'
 
-  /api/v1/moods/{recordId}:
-    get:
-      tags: [CRD]
-      operationId: CRD-VIEW-003
-      summary: 기록 상세 조회
-      parameters:
-        - name: recordId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        "200":
-          description: 기록 상세
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "./components/common.yaml#/SuccessWrapper"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "./paths/CRD-VIEW.yaml#/schemas/MoodDetailData"
-    delete:
-      tags: [CRD]
-      operationId: CRD-DEL-001
-      summary: 기록 지우기
-      parameters:
-        - name: recordId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        "200":
-          description: 삭제 완료
-          content:
-            application/json:
-              schema:
-                $ref: "./components/common.yaml#/SuccessNoData"
+    /api/v1/cheers/availability:
+        $ref: './paths/BLK-SEND.yaml#/cheerAvailability'
+    /api/v1/cheers:
+        $ref: './paths/BLK-SEND.yaml#/cheerSend'
+    /api/v1/cheers/receive:
+        $ref: './paths/BLK-RCV.yaml#/cheerReceive'
+    /api/v1/cheers/{cheerId}/report:
+        $ref: './paths/BLK-RPT.yaml#/cheerReport'
+    /api/v1/blankets:
+        $ref: './paths/BLK-VIEW.yaml#/blanketView'
+    /api/v1/blankets/{blanketId}/slots/{slotIndex}:
+        $ref: './paths/BLK-VIEW.yaml#/blanketSlotView'
+
+    /api/v1/interactions/map:
+        $ref: './paths/ITR-MAP.yaml#/interactionMap'
+
+    /api/v1/moods/{recordId}:
+        get:
+            tags: [CRD]
+            operationId: CRD-VIEW-003
+            summary: 기록 상세 조회
+            parameters:
+                - name: recordId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      format: int64
+            responses:
+                '200':
+                    description: 기록 상세
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: './components/common.yaml#/SuccessWrapper'
+                                    - type: object
+                                      properties:
+                                          data:
+                                              $ref: './paths/CRD-VIEW.yaml#/schemas/MoodDetailData'
+        delete:
+            tags: [CRD]
+            operationId: CRD-DEL-001
+            summary: 기록 지우기
+            parameters:
+                - name: recordId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      format: int64
+            responses:
+                '200':
+                    description: 삭제 완료
+                    content:
+                        application/json:
+                            schema:
+                                $ref: './components/common.yaml#/SuccessNoData'
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
 
-  schemas:
-    SuccessNoData:
-      $ref: "./components/common.yaml#/SuccessNoData"
-    SuccessWrapper:
-      $ref: "./components/common.yaml#/SuccessWrapper"
-    Error:
-      $ref: "./components/common.yaml#/Error"
+    schemas:
+        SuccessNoData:
+            $ref: './components/common.yaml#/SuccessNoData'
+        SuccessWrapper:
+            $ref: './components/common.yaml#/SuccessWrapper'
+        Error:
+            $ref: './components/common.yaml#/Error'
