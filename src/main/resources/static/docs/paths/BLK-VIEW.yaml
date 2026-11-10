@@ -1,0 +1,94 @@
+blanketView:
+  get:
+    tags: [BLK]
+    operationId: BLK-VIEW-001
+    summary: 담요 조회
+    parameters:
+      - name: blanketId
+        in: query
+        required: false
+        description: 미지정 시 현재 담요
+        schema:
+          type: integer
+          format: int64
+    responses:
+      "200":
+        description: 담요 30칸 채움 상태
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/BlanketViewData"
+
+blanketSlotView:
+  get:
+    tags: [BLK]
+    operationId: BLK-VIEW-002
+    summary: 패치 카드 조회
+    description: 받은 일시와 같은 날짜에 마음 기록이 있으면 '이날의 기록 보기'(CRD-VIEW-002)를 노출한다.
+    parameters:
+      - name: blanketId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: slotIndex
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 30
+    responses:
+      "200":
+        description: 칸에 채워진 패치 상세
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/BlanketSlotData"
+
+schemas:
+  BlanketViewData:
+    type: object
+    properties:
+      blanketId:
+        type: integer
+        format: int64
+      slots:
+        type: array
+        description: 1~30번 칸, 빈 담요면 비어있는 상태로 30개 모두 내려간다.
+        items:
+          $ref: "#/schemas/BlanketSlotSummary"
+      hasPrevious:
+        type: boolean
+      hasNext:
+        type: boolean
+
+  BlanketSlotSummary:
+    type: object
+    properties:
+      slotIndex:
+        type: integer
+      filled:
+        type: boolean
+
+  BlanketSlotData:
+    type: object
+    properties:
+      message:
+        type: string
+      receivedAt:
+        type: string
+        format: date-time
+      hasMoodRecordOnDate:
+        type: boolean

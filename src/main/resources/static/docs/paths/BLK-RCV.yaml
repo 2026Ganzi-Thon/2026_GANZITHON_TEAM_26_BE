@@ -1,0 +1,46 @@
+cheerReceive:
+  post:
+    tags: [BLK]
+    operationId: BLK-RCV-001
+    summary: 패치 받기
+    description: >-
+      오늘 1~3번째 기록으로 받는 도안은 대기열에서 패치를 꺼내 담요에 적립한다(BLK-STACK-001).
+      오늘 4번째 이상 기록이면 대기열 조회 없이 도안별 기본 메시지만 내려주고 담요에는 적립하지 않는다(BLK-RCV-002).
+    responses:
+      "200":
+        description: 도안별 패치 메시지
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/CheerReceiveData"
+
+schemas:
+  CheerReceiveData:
+    type: object
+    properties:
+      patches:
+        type: array
+        items:
+          $ref: "#/schemas/ReceivedCheer"
+
+  ReceivedCheer:
+    type: object
+    properties:
+      cheerId:
+        type: integer
+        format: int64
+        nullable: true
+        description: 기본 메시지(isDefault true)면 null
+      emotion:
+        type: string
+        example: SAD
+      message:
+        type: string
+      isDefault:
+        type: boolean
+        description: 대기열이 비어 기본 메시지로 대체되었거나(1~3번째) 4번째 이상 기록이라 기본 메시지만 받은 경우 true

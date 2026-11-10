@@ -1,0 +1,47 @@
+interactionMap:
+  get:
+    tags: [ITR]
+    operationId: ITR-MAP-001
+    summary: 온기 지도 인원 표시
+    description: >-
+      최근 24시간 이내 집계(ACTIVE)가 있으면 그것을, 없으면 24시간 초과~7일 이내 집계(QUIET)를,
+      그마저 없으면 FIRST_LIGHT를 상태로 내려준다. 오늘 고른 감정이 2개면 두 감정 각각의 인원을 emotions에 담는다.
+    responses:
+      "200":
+        description: 지도 인원 집계
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/InteractionMapData"
+
+schemas:
+  InteractionMapData:
+    type: object
+    properties:
+      status:
+        type: string
+        enum: [ACTIVE, QUIET, FIRST_LIGHT]
+        description: ACTIVE는 최근 24시간, QUIET는 24시간 초과~7일 이내, FIRST_LIGHT는 지난 7일간 본인뿐인 경우
+      emotions:
+        type: array
+        description: status가 FIRST_LIGHT면 빈 배열
+        items:
+          $ref: "#/schemas/EmotionCount"
+      blanketNotStackedNotice:
+        type: boolean
+        description: 오늘 4번째 이상 기록이라 담요에 적립되지 않았음을 안내해야 하면 true
+
+  EmotionCount:
+    type: object
+    properties:
+      emotion:
+        type: string
+        example: SAD
+      count:
+        type: integer
+        description: status에 해당하는 시간 범위 안에서 같은 감정을 고른 인원 수(본인 제외)

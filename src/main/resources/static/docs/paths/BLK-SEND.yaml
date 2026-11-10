@@ -1,0 +1,94 @@
+cheerAvailability:
+  get:
+    tags: [BLK]
+    operationId: BLK-SEND-001
+    summary: 패치 보내기 가능 확인
+    description: 오늘 보낼 수 있는 개수는 자정 기준 매일 5개 지급, 마음 기록 저장(CRD-WRITE-003) 시 사연이 포함되어 있으면 1개씩 추가 지급된다(상한 없음).
+    responses:
+      "200":
+        description: 작성 가능 여부와 질문 목록
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/CheerAvailabilityData"
+
+cheerSend:
+  post:
+    tags: [BLK]
+    operationId: BLK-SEND-002
+    summary: 패치 검사·발송
+    description: >-
+      1차 금칙어 필터·2차 AI 분류 결과 부적절로 판정되면 400으로 응답한다.
+      위기 표현 감지는 예외가 아닌 정상 분기로, 200 응답 후 위기 안내 화면(ALRT-HELP-002)으로 안내한다.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/schemas/CheerSendRequest"
+    responses:
+      "200":
+        description: 발송 완료(위기 표현 포함 여부와 무관하게 200)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/CheerSendData"
+
+schemas:
+  CheerAvailabilityData:
+    type: object
+    properties:
+      sendable:
+        type: boolean
+        description: 오늘 보낼 수 있는 개수가 0개면 false
+      remainingSendableCount:
+        type: integer
+      questions:
+        type: array
+        items:
+          $ref: "#/schemas/EmotionQuestionGroup"
+
+  EmotionQuestionGroup:
+    type: object
+    properties:
+      emotion:
+        type: string
+        example: SAD
+      questions:
+        type: array
+        items:
+          type: string
+        example: ["오늘 어떤 순간이 가장 힘들었나요?"]
+
+  CheerSendRequest:
+    type: object
+    required: [targetEmotion, content]
+    properties:
+      targetEmotion:
+        type: string
+        example: SAD
+      content:
+        type: string
+        minLength: 1
+        maxLength: 50
+        example: 오늘도 고생 많았어요.
+
+  CheerSendData:
+    type: object
+    properties:
+      crisisDetected:
+        type: boolean
+        description: true면 위기 안내 화면(ALRT-HELP-002)으로 안내한다.
+      remainingSendableCount:
+        type: integer
+        description: 발송 성공 시 1 차감된 값. crisisDetected가 true면 차감 전 값이 그대로 내려온다.

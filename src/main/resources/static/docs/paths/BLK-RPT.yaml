@@ -1,0 +1,32 @@
+cheerReport:
+  post:
+    tags: [BLK]
+    operationId: BLK-RPT-001
+    summary: 패치 신고
+    description: 기본 메시지(isDefault true)는 신고 대상이 아니다. 신고 사유는 받지 않는다.
+    parameters:
+      - name: cheerId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    responses:
+      "200":
+        description: 숨김 처리 및 새 패치로 교체 완료
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/CheerReportData"
+
+schemas:
+  CheerReportData:
+    type: object
+    properties:
+      replaced:
+        $ref: "./BLK-RCV.yaml#/schemas/ReceivedCheer"
