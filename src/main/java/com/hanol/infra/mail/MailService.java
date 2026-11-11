@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MailService {
 
-  private static final String VERIFICATION_SUBJECT = "[Patch] 이메일 인증번호 안내";
+  private static final String VERIFICATION_SUBJECT = "[PATCH] 이메일 인증번호 안내";
   private static final String VERIFICATION_TEXT =
       """
-      안녕하세요, Patch입니다.
+      안녕하세요, PATCH입니다.
 
       아래 인증번호 6자리를 앱에 입력해 주세요.
 
