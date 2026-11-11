@@ -1,7 +1,6 @@
 package com.hanol.global.exception;
 
 import com.hanol.global.response.ApiResponse;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -25,15 +24,14 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResponse<List<FieldErrorDetail>>> handleValidationException(
+  public ResponseEntity<ApiResponse<Void>> handleValidationException(
       MethodArgumentNotValidException exception) {
-    List<FieldErrorDetail> errors =
+    log.info(
+        "Validation failed: {}",
         exception.getBindingResult().getFieldErrors().stream()
-            .map(error -> new FieldErrorDetail(error.getField(), error.getDefaultMessage()))
-            .toList();
-    log.info("Validation failed: {}", errors);
-    CommonErrorCode errorCode = CommonErrorCode.INVALID_INPUT;
-    return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode, errors));
+            .map(error -> error.getField() + " - " + error.getDefaultMessage())
+            .toList());
+    return toResponse(CommonErrorCode.INVALID_INPUT);
   }
 
   @ExceptionHandler({
