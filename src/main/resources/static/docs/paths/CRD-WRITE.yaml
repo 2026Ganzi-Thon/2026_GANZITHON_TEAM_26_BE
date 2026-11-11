@@ -22,6 +22,18 @@ moodStoryCheck:
                   properties:
                     data:
                       $ref: "#/schemas/StoryCheckData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "400":
+        description: 300자 초과
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
 
 schemas:
   StoryCheckRequest:
