@@ -6,7 +6,9 @@ import com.hanol.global.security.AccessTokenBlacklist;
 import com.hanol.global.security.AuthErrorCode;
 import com.hanol.global.security.JwtProperties;
 import com.hanol.global.security.JwtProvider;
+import com.hanol.global.security.TokenClaims;
 import com.hanol.global.security.TokenType;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,13 @@ public class TokenService {
   private final RefreshTokenRepository refreshTokenRepository;
   private final AccessTokenBlacklist accessTokenBlacklist;
 
-  /** Access·Refresh 토큰을 발급하고 Refresh 토큰을 Redis 에 저장한다. (기존 Refresh 토큰은 덮어씀) */
+  /** 새 세션을 만들어 Access·Refresh 토큰을 발급한다. 다른 기기의 세션은 그대로 둔다. */
   public TokenPair issue(Long userId) {
-    String accessToken = jwtProvider.createAccessToken(userId);
-    String refreshToken = jwtProvider.createRefreshToken(userId);
-    refreshTokenRepository.save(userId, refreshToken, jwtProperties.refreshTokenValidity());
+    String sessionId = UUID.randomUUID().toString();
+    String accessToken = jwtProvider.createAccessToken(userId, sessionId);
+    String refreshToken = jwtProvider.createRefreshToken(userId, sessionId);
+    refreshTokenRepository.save(
+        userId, sessionId, refreshToken, jwtProperties.refreshTokenValidity());
     return new TokenPair(accessToken, refreshToken);
   }
 
@@ -42,28 +46,30 @@ public class TokenService {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
 
-    Long userId;
+    TokenClaims claims;
     try {
-      userId = jwtProvider.getUserId(refreshToken, TokenType.REFRESH);
+      claims = jwtProvider.parse(refreshToken, TokenType.REFRESH);
     } catch (BusinessException exception) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
 
     String savedToken =
         refreshTokenRepository
-            .find(userId)
+            .find(claims.userId(), claims.sessionId())
             .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_TOKEN));
     if (!savedToken.equals(refreshToken)) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
 
-    log.info("Access 토큰 재발급: userId={}", userId);
-    return jwtProvider.createAccessToken(userId);
+    log.info("Access 토큰 재발급: userId={}", claims.userId());
+    return jwtProvider.createAccessToken(claims.userId(), claims.sessionId());
   }
 
+  /** 요청한 Access 토큰을 블랙리스트에 올리고 그 세션의 Refresh 토큰만 지운다. */
   public void logout(Long userId, String accessToken) {
+    TokenClaims claims = jwtProvider.parse(accessToken, TokenType.ACCESS);
     accessTokenBlacklist.add(accessToken, jwtProvider.getRemainingValidity(accessToken));
-    refreshTokenRepository.delete(userId);
+    refreshTokenRepository.delete(userId, claims.sessionId());
     log.info("로그아웃: userId={}", userId);
   }
 }

@@ -30,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     String token = BearerTokenResolver.resolve(request);
     if (token != null) {
       try {
-        Long userId = jwtProvider.getUserId(token, TokenType.ACCESS);
+        Long userId = jwtProvider.parse(token, TokenType.ACCESS).userId();
         if (accessTokenBlacklist.contains(token)) {
           throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
         }

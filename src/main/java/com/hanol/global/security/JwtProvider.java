@@ -14,11 +14,12 @@ import java.util.Date;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Component;
 
-/** JWT 발급/검증. subject 에는 userId 를, type 클레임에는 ACCESS / REFRESH 를 담는다. */
+/** JWT 발급/검증. subject 에는 userId 를, type 클레임에는 ACCESS / REFRESH 를, sid 클레임에는 세션 id 를 담는다. */
 @Component
 public class JwtProvider {
 
   private static final String TOKEN_TYPE_CLAIM = "type";
+  private static final String SESSION_ID_CLAIM = "sid";
 
   private final JwtProperties properties;
   private final Clock clock;
@@ -30,26 +31,27 @@ public class JwtProvider {
     this.secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(properties.secret()));
   }
 
-  public String createAccessToken(Long userId) {
-    return createToken(userId, TokenType.ACCESS, properties.accessTokenValidity());
+  public String createAccessToken(Long userId, String sessionId) {
+    return createToken(userId, sessionId, TokenType.ACCESS, properties.accessTokenValidity());
   }
 
-  public String createRefreshToken(Long userId) {
-    return createToken(userId, TokenType.REFRESH, properties.refreshTokenValidity());
+  public String createRefreshToken(Long userId, String sessionId) {
+    return createToken(userId, sessionId, TokenType.REFRESH, properties.refreshTokenValidity());
   }
 
   /**
-   * 토큰을 검증하고 userId 를 꺼낸다.
+   * 토큰을 검증하고 userId·sessionId 를 꺼낸다.
    *
-   * @throws BusinessException 만료(EXPIRED_TOKEN)되었거나, 위조·형식 오류·타입 불일치(INVALID_TOKEN)인 경우
+   * @throws BusinessException 만료(EXPIRED_TOKEN)되었거나, 위조·형식 오류·타입 불일치·세션 id 누락(INVALID_TOKEN)인 경우
    */
-  public Long getUserId(String token, TokenType expectedType) {
+  public TokenClaims parse(String token, TokenType expectedType) {
     Claims claims = parseClaims(token);
     String tokenType = claims.get(TOKEN_TYPE_CLAIM, String.class);
-    if (!expectedType.name().equals(tokenType)) {
+    String sessionId = claims.get(SESSION_ID_CLAIM, String.class);
+    if (!expectedType.name().equals(tokenType) || sessionId == null) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
-    return Long.valueOf(claims.getSubject());
+    return new TokenClaims(Long.valueOf(claims.getSubject()), sessionId);
   }
 
   /** 토큰의 남은 유효 시간. 로그아웃 시 Redis 블랙리스트 만료 시간으로 사용한다. */
@@ -59,11 +61,13 @@ public class JwtProvider {
     return remaining.isNegative() ? Duration.ZERO : remaining;
   }
 
-  private String createToken(Long userId, TokenType tokenType, Duration validity) {
+  private String createToken(
+      Long userId, String sessionId, TokenType tokenType, Duration validity) {
     Instant now = clock.instant();
     return Jwts.builder()
         .subject(String.valueOf(userId))
         .claim(TOKEN_TYPE_CLAIM, tokenType.name())
+        .claim(SESSION_ID_CLAIM, sessionId)
         .issuedAt(Date.from(now))
         .expiration(Date.from(now.plus(validity)))
         .signWith(secretKey)
