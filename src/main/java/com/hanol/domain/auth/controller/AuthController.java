@@ -40,14 +40,14 @@ public class AuthController {
   }
 
   /** USR-AUTH-002 이메일 인증번호 발송. */
-  @PostMapping("/email-codes")
+  @PostMapping("/email-verifications")
   public ApiResponse<Void> sendEmailCode(@Valid @RequestBody EmailCodeSendRequest request) {
     emailVerificationService.sendCode(request.email());
     return ApiResponse.ok();
   }
 
   /** USR-AUTH-002 이메일 인증번호 확인. */
-  @PostMapping("/email-codes/verify")
+  @PostMapping("/email-verifications/confirm")
   public ApiResponse<Void> verifyEmailCode(@Valid @RequestBody EmailCodeVerifyRequest request) {
     emailVerificationService.verifyCode(request.email(), request.code());
     return ApiResponse.ok();
@@ -60,7 +60,7 @@ public class AuthController {
   }
 
   /** USR-AUTH-006 토큰 재발급. */
-  @PostMapping("/reissue")
+  @PostMapping("/token/refresh")
   public ApiResponse<TokenReissueResponse> reissue(@RequestBody TokenReissueRequest request) {
     return ApiResponse.ok(TokenReissueResponse.from(tokenService.reissue(request.refreshToken())));
   }
