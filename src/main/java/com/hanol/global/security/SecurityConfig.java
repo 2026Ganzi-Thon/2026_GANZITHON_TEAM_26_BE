@@ -22,9 +22,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-  /** /api/v1/auth/** 중 예외적으로 로그인이 필요한 경로. PUBLIC_URLS 보다 먼저 검사한다. */
-  private static final String[] AUTHENTICATED_AUTH_URLS = {"/api/v1/auth/logout"};
-
   /** 로그인 없이 접근 가능한 경로 */
   private static final String[] PUBLIC_URLS = {
     "/api/v1/auth/**",
@@ -37,7 +34,7 @@ public class SecurityConfig {
   };
 
   private final JwtProvider jwtProvider;
-  private final AccessTokenBlacklist accessTokenBlacklist;
+  private final AccessTokenStore accessTokenStore;
   private final JwtAuthenticationEntryPoint authenticationEntryPoint;
   private final CorsProperties corsProperties;
 
@@ -50,17 +47,11 @@ public class SecurityConfig {
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
-            auth ->
-                auth.requestMatchers(AUTHENTICATED_AUTH_URLS)
-                    .authenticated()
-                    .requestMatchers(PUBLIC_URLS)
-                    .permitAll()
-                    .anyRequest()
-                    .authenticated())
+            auth -> auth.requestMatchers(PUBLIC_URLS).permitAll().anyRequest().authenticated())
         .exceptionHandling(
             exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
         .addFilterBefore(
-            new JwtAuthenticationFilter(jwtProvider, accessTokenBlacklist),
+            new JwtAuthenticationFilter(jwtProvider, accessTokenStore),
             UsernamePasswordAuthenticationFilter.class);
     return http.build();
   }
