@@ -48,10 +48,16 @@ public class MoodRecordCard extends BaseTimeEntity {
   @Column(name = "emotion", nullable = false, length = 30)
   private Emotion emotion;
 
+  @Enumerated(EnumType.STRING)
+  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @Column(name = "receive_status", nullable = false, length = 20)
+  private ReceiveStatus receiveStatus;
+
   @Builder
   private MoodRecordCard(MoodRecord moodRecord, int cardOrder, Emotion emotion) {
     this.moodRecord = moodRecord;
     this.cardOrder = cardOrder;
     this.emotion = emotion;
+    this.receiveStatus = ReceiveStatus.NOT_RECEIVED;
   }
 }
