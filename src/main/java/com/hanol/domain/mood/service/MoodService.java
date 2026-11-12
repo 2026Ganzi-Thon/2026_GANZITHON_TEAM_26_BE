@@ -193,4 +193,19 @@ public class MoodService {
             .toList(),
         story);
   }
+
+  @Transactional
+  public void deleteRecord(Long userId, Long recordId) {
+    MoodRecord record =
+        moodRecordRepository
+            .findById(recordId)
+            .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+    if (!Objects.equals(record.getUser().getId(), userId)) {
+      throw new BusinessException(CommonErrorCode.FORBIDDEN);
+    }
+
+    storyRepository.deleteByMoodRecordId(recordId);
+    moodRecordCardRepository.deleteByMoodRecordId(recordId);
+    moodRecordRepository.delete(record);
+  }
 }

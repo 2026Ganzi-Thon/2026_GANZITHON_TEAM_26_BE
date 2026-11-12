@@ -14,4 +14,6 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
   List<Long> findMoodRecordIds(@Param("moodRecordIds") Collection<Long> moodRecordIds);
 
   Optional<Story> findByMoodRecordId(Long moodRecordId);
+
+  void deleteByMoodRecordId(Long moodRecordId);
 }

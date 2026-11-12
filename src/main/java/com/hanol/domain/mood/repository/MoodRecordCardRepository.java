@@ -10,4 +10,6 @@ public interface MoodRecordCardRepository extends JpaRepository<MoodRecordCard, 
   List<MoodRecordCard> findByMoodRecordIdInOrderByCardOrderAsc(Collection<Long> moodRecordIds);
 
   List<MoodRecordCard> findByMoodRecordIdOrderByCardOrderAsc(Long moodRecordId);
+
+  void deleteByMoodRecordId(Long moodRecordId);
 }
