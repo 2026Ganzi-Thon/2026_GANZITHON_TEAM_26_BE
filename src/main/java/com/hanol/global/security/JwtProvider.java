@@ -45,20 +45,25 @@ public class JwtProvider {
    * @throws BusinessException 만료(EXPIRED_TOKEN)되었거나, 위조·형식 오류·타입 불일치·세션 id 누락(INVALID_TOKEN)인 경우
    */
   public TokenClaims parse(String token, TokenType expectedType) {
-    Claims claims = parseClaims(token);
+    return toTokenClaims(parseClaims(token, false), expectedType);
+  }
+
+  /**
+   * 만료된 토큰도 허용해 userId·sessionId 를 꺼낸다. (로그아웃용) 서명은 검증한다.
+   *
+   * @throws BusinessException 위조·형식 오류·타입 불일치·세션 id 누락(INVALID_TOKEN)인 경우
+   */
+  public TokenClaims parseAllowingExpired(String token, TokenType expectedType) {
+    return toTokenClaims(parseClaims(token, true), expectedType);
+  }
+
+  private TokenClaims toTokenClaims(Claims claims, TokenType expectedType) {
     String tokenType = claims.get(TOKEN_TYPE_CLAIM, String.class);
     String sessionId = claims.get(SESSION_ID_CLAIM, String.class);
     if (!expectedType.name().equals(tokenType) || sessionId == null) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
     return new TokenClaims(Long.valueOf(claims.getSubject()), sessionId);
-  }
-
-  /** 토큰의 남은 유효 시간. 로그아웃 시 Redis 블랙리스트 만료 시간으로 사용한다. */
-  public Duration getRemainingValidity(String token) {
-    Date expiration = parseClaims(token).getExpiration();
-    Duration remaining = Duration.between(clock.instant(), expiration.toInstant());
-    return remaining.isNegative() ? Duration.ZERO : remaining;
   }
 
   private String createToken(
@@ -74,7 +79,7 @@ public class JwtProvider {
         .compact();
   }
 
-  private Claims parseClaims(String token) {
+  private Claims parseClaims(String token, boolean allowExpired) {
     try {
       return Jwts.parser()
           .verifyWith(secretKey)
@@ -83,6 +88,10 @@ public class JwtProvider {
           .parseSignedClaims(token)
           .getPayload();
     } catch (ExpiredJwtException exception) {
+      // 서명 검증 뒤에 만료를 검사하므로, 여기까지 왔다면 서명은 올바르다.
+      if (allowExpired) {
+        return exception.getClaims();
+      }
       throw new BusinessException(AuthErrorCode.EXPIRED_TOKEN);
     } catch (JwtException | IllegalArgumentException exception) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);

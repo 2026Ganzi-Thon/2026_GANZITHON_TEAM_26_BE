@@ -2,7 +2,7 @@ package com.hanol.domain.auth.service;
 
 import com.hanol.domain.auth.repository.RefreshTokenRepository;
 import com.hanol.global.exception.BusinessException;
-import com.hanol.global.security.AccessTokenBlacklist;
+import com.hanol.global.security.AccessTokenStore;
 import com.hanol.global.security.AuthErrorCode;
 import com.hanol.global.security.JwtProperties;
 import com.hanol.global.security.JwtProvider;
@@ -23,20 +23,21 @@ public class TokenService {
   private final JwtProvider jwtProvider;
   private final JwtProperties jwtProperties;
   private final RefreshTokenRepository refreshTokenRepository;
-  private final AccessTokenBlacklist accessTokenBlacklist;
+  private final AccessTokenStore accessTokenStore;
 
   /** 새 세션을 만들어 Access·Refresh 토큰을 발급한다. 다른 기기의 세션은 그대로 둔다. */
   public TokenPair issue(Long userId) {
     String sessionId = UUID.randomUUID().toString();
     String accessToken = jwtProvider.createAccessToken(userId, sessionId);
     String refreshToken = jwtProvider.createRefreshToken(userId, sessionId);
+    saveAccessToken(userId, sessionId, accessToken);
     refreshTokenRepository.save(
         userId, sessionId, refreshToken, jwtProperties.refreshTokenValidity());
     return new TokenPair(accessToken, refreshToken);
   }
 
   /**
-   * 새 Access 토큰을 발급한다. Refresh 토큰은 교체하지 않는다(Rotation 미적용).
+   * 새 Access 토큰을 발급한다. 그 세션의 이전 Access 토큰은 바로 무효가 된다. Refresh 토큰은 교체하지 않는다(Rotation 미적용).
    *
    * <p>Refresh 토큰이 만료된 경우도 401_TOKEN_EXPIRED 가 아니라 401_UNAUTHORIZED 로 응답한다. 클라이언트는 TOKEN_EXPIRED 를
    * 받으면 재발급을 시도하므로, 재발급 API 에서 그 코드를 주면 재발급을 무한 반복하게 된다.
@@ -61,15 +62,24 @@ public class TokenService {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
 
+    String accessToken = jwtProvider.createAccessToken(claims.userId(), claims.sessionId());
+    saveAccessToken(claims.userId(), claims.sessionId(), accessToken);
     log.info("Access 토큰 재발급: userId={}", claims.userId());
-    return jwtProvider.createAccessToken(claims.userId(), claims.sessionId());
+    return accessToken;
   }
 
-  /** 요청한 Access 토큰을 블랙리스트에 올리고 그 세션의 Refresh 토큰만 지운다. */
-  public void logout(Long userId, String accessToken) {
-    TokenClaims claims = jwtProvider.parse(accessToken, TokenType.ACCESS);
-    accessTokenBlacklist.add(accessToken, jwtProvider.getRemainingValidity(accessToken));
-    refreshTokenRepository.delete(userId, claims.sessionId());
-    log.info("로그아웃: userId={}", userId);
+  /** 그 세션의 Access·Refresh 토큰만 지운다. 만료된 Access 토큰으로도 로그아웃할 수 있다. */
+  public void logout(String accessToken) {
+    if (!StringUtils.hasText(accessToken)) {
+      throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+    }
+    TokenClaims claims = jwtProvider.parseAllowingExpired(accessToken, TokenType.ACCESS);
+    accessTokenStore.delete(claims.userId(), claims.sessionId());
+    refreshTokenRepository.delete(claims.userId(), claims.sessionId());
+    log.info("로그아웃: userId={}", claims.userId());
+  }
+
+  private void saveAccessToken(Long userId, String sessionId, String accessToken) {
+    accessTokenStore.save(userId, sessionId, accessToken, jwtProperties.refreshTokenValidity());
   }
 }

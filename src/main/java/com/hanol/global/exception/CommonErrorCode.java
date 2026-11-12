@@ -7,7 +7,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum CommonErrorCode implements ErrorCode {
-  INVALID_INPUT(HttpStatus.BAD_REQUEST, "400_BAD_REQUEST", "입력값이 올바르지 않습니다."),
+  INVALID_INPUT(HttpStatus.BAD_REQUEST, "400_INVALID_INPUT", "입력값이 올바르지 않습니다."),
+  BAD_REQUEST(HttpStatus.BAD_REQUEST, "400_BAD_REQUEST", "잘못된 요청입니다."),
   UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "401_UNAUTHORIZED", "로그인이 필요합니다."),
   FORBIDDEN(HttpStatus.FORBIDDEN, "403_FORBIDDEN", "접근 권한이 없습니다."),
   NOT_FOUND(HttpStatus.NOT_FOUND, "404_NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."),

@@ -17,7 +17,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -65,11 +64,10 @@ public class AuthController {
     return ApiResponse.ok(TokenReissueResponse.from(tokenService.reissue(request.refreshToken())));
   }
 
-  /** USR-AUTH-007 로그아웃 (로그인 필요). */
+  /** USR-AUTH-007 로그아웃. 만료된 Access 토큰으로도 가능하도록 헤더 토큰을 직접 확인한다. */
   @PostMapping("/logout")
-  public ApiResponse<Void> logout(
-      @AuthenticationPrincipal Long userId, HttpServletRequest httpRequest) {
-    tokenService.logout(userId, BearerTokenResolver.resolve(httpRequest));
+  public ApiResponse<Void> logout(HttpServletRequest httpRequest) {
+    tokenService.logout(BearerTokenResolver.resolve(httpRequest));
     return ApiResponse.ok();
   }
 }
