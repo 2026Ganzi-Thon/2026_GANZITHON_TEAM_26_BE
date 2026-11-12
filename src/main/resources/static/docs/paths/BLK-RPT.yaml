@@ -23,6 +23,36 @@ cheerReport:
                   properties:
                     data:
                       $ref: "#/schemas/CheerReportData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "400":
+        description: 신고 대상이 기본 메시지(4번째 이후)
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "403":
+        description: 본인이 받지 않은 패치를 신고 시도
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "404":
+        description: 존재하지 않는 패치 메시지 ID
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "409":
+        description: 이미 신고 처리된 메시지
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
 
 schemas:
   CheerReportData:

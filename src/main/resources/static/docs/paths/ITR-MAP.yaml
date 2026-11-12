@@ -18,6 +18,24 @@ interactionMap:
                   properties:
                     data:
                       $ref: "#/schemas/InteractionMapData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "400":
+        description: 오늘 기록 없음
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "500":
+        description: 인원 집계 조회 실패
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
 
 schemas:
   InteractionMapData:

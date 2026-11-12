@@ -23,6 +23,24 @@ blanketView:
                   properties:
                     data:
                       $ref: "#/schemas/BlanketViewData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "403":
+        description: 타인의 담요 조회 시도
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "404":
+        description: 존재하지 않는 담요 번호 조회
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
 
 blanketSlotView:
   get:
@@ -56,6 +74,24 @@ blanketSlotView:
                   properties:
                     data:
                       $ref: "#/schemas/BlanketSlotData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "403":
+        description: 타인의 담요 칸 조회 시도
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "404":
+        description: 빈 칸 조회
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
 
 schemas:
   BlanketViewData:

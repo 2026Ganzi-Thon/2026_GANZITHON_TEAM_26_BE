@@ -24,6 +24,18 @@ moodCalendar:
                   properties:
                     data:
                       $ref: "#/schemas/MoodCalendarData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
+      "400":
+        description: yearMonth 형식 불일치
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/Error"
 
 schemas:
   MoodCalendarData:
