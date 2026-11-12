@@ -8,7 +8,7 @@ import com.hanol.global.exception.ErrorCode;
  *
  * <pre>
  * 성공: { "message": "success", "data": { ... } }  (데이터가 없으면 message 만)
- * 실패: { "code": "400_BAD_REQUEST", "message": "입력값이 올바르지 않습니다." }
+ * 실패: { "code": "400_INVALID_INPUT", "message": "입력값이 올바르지 않습니다." }
  * </pre>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
