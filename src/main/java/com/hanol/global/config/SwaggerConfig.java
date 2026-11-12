@@ -20,7 +20,8 @@ public class SwaggerConfig {
   @Bean
   public OpenAPI openApi() {
     return new OpenAPI()
-        .info(new Info().title("한 올 API").description("2026 간지톤 26팀 '한 올' 백엔드 API").version("v1"))
+        .info(
+            new Info().title("PATCH API").description("2026 간지톤 26팀 'PATCH' 백엔드 API").version("v1"))
         .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
         .components(
             new Components()

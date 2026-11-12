@@ -34,6 +34,7 @@ public class SecurityConfig {
   };
 
   private final JwtProvider jwtProvider;
+  private final AccessTokenStore accessTokenStore;
   private final JwtAuthenticationEntryPoint authenticationEntryPoint;
   private final CorsProperties corsProperties;
 
@@ -50,7 +51,8 @@ public class SecurityConfig {
         .exceptionHandling(
             exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
         .addFilterBefore(
-            new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
+            new JwtAuthenticationFilter(jwtProvider, accessTokenStore),
+            UsernamePasswordAuthenticationFilter.class);
     return http.build();
   }
 

@@ -1,12 +1,12 @@
 package com.hanol.global.exception;
 
 import com.hanol.global.response.ApiResponse;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,25 +25,33 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResponse<List<FieldErrorDetail>>> handleValidationException(
+  public ResponseEntity<ApiResponse<Void>> handleValidationException(
       MethodArgumentNotValidException exception) {
-    List<FieldErrorDetail> errors =
+    log.info(
+        "Validation failed: {}",
         exception.getBindingResult().getFieldErrors().stream()
-            .map(error -> new FieldErrorDetail(error.getField(), error.getDefaultMessage()))
-            .toList();
-    log.info("Validation failed: {}", errors);
-    CommonErrorCode errorCode = CommonErrorCode.INVALID_INPUT;
-    return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode, errors));
+            .map(error -> error.getField() + " - " + error.getDefaultMessage())
+            .toList());
+    return toResponse(CommonErrorCode.INVALID_INPUT);
   }
 
+  /** 요청 body 를 읽을 수 없음 (깨진 JSON, 타입 불일치 등). */
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiResponse<Void>> handleNotReadable(
+      HttpMessageNotReadableException exception) {
+    log.info("Not readable body: {}", exception.getMessage());
+    return toResponse(CommonErrorCode.INVALID_INPUT);
+  }
+
+  /** URL·헤더·쿼리 문제. */
   @ExceptionHandler({
-    HttpMessageNotReadableException.class,
     MissingServletRequestParameterException.class,
-    MethodArgumentTypeMismatchException.class
+    MethodArgumentTypeMismatchException.class,
+    MissingRequestHeaderException.class
   })
   public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception exception) {
     log.info("Bad request: {}", exception.getMessage());
-    return toResponse(CommonErrorCode.INVALID_INPUT);
+    return toResponse(CommonErrorCode.BAD_REQUEST);
   }
 
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
