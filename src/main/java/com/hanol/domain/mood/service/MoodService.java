@@ -28,7 +28,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -45,12 +45,12 @@ public class MoodService {
   private final StoryRepository storyRepository;
   private final WarmthMapLogRepository warmthMapLogRepository;
   private final Clock clock;
+  private final TransactionTemplate transactionTemplate;
 
   public StoryCheckResponse checkStory(StoryCheckRequest request) {
     return new StoryCheckResponse(crisisDetector.isCrisis(request.content()));
   }
 
-  @Transactional
   public MoodRecordCreateResponse createRecord(Long userId, MoodRecordCreateRequest request) {
     List<Emotion> emotions = request.emotions();
     if (new HashSet<>(emotions).size() != emotions.size()) {
@@ -59,10 +59,21 @@ public class MoodService {
 
     String story = request.story();
     boolean hasStory = story != null && !story.isBlank();
-    if (hasStory && crisisDetector.isCrisis(story)) {
-      log.info("Crisis expression detected in mood record story. userId={}", userId);
+    if (hasStory) {
+      try {
+        if (crisisDetector.isCrisis(story)) {
+          log.info("Crisis expression detected in mood record story. userId={}", userId);
+        }
+      } catch (BusinessException exception) {
+        log.warn("Crisis re-check failed, saving record anyway. userId={}", userId);
+      }
     }
 
+    return transactionTemplate.execute(status -> saveRecord(userId, emotions, story, hasStory));
+  }
+
+  private MoodRecordCreateResponse saveRecord(
+      Long userId, List<Emotion> emotions, String story, boolean hasStory) {
     User user =
         userRepository
             .findByIdForUpdate(userId)
@@ -91,11 +102,8 @@ public class MoodService {
               .build());
     }
 
-    Integer remainingSendableCount = null;
     if (hasStory) {
       storyRepository.save(Story.builder().moodRecord(record).content(story).build());
-      dailyStat.increaseBonusSendCount();
-      remainingSendableCount = dailyStat.getRemainingSendableCount();
     }
 
     LocalDateTime dedupFrom = now.minusMinutes(WARMTH_MAP_DEDUP_MINUTES);
@@ -108,10 +116,6 @@ public class MoodService {
     }
 
     return new MoodRecordCreateResponse(
-        record.getId(),
-        emotions.stream().map(Emotion::name).toList(),
-        now,
-        todayCount,
-        remainingSendableCount);
+        record.getId(), emotions.stream().map(Emotion::name).toList(), now, todayCount);
   }
 }

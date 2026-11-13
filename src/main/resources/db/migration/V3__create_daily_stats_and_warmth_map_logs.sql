@@ -5,7 +5,6 @@ CREATE TABLE daily_stats
     stat_date        DATE        NOT NULL,
     pick_count       INT         NOT NULL DEFAULT 0,
     sent_count       INT         NOT NULL DEFAULT 0,
-    bonus_send_count INT         NOT NULL DEFAULT 0,
     last_sent_at     DATETIME(6) NULL,
     created_at       DATETIME(6) NOT NULL,
     updated_at       DATETIME(6) NOT NULL,
