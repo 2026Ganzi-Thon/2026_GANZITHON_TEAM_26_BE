@@ -72,7 +72,7 @@ paths:
                             schema:
                                 $ref: './components/common.yaml#/UnauthorizedError'
                 '400':
-                    description: 감정 미선택 / 감정 3개 이상 선택 시도 / 존재하지 않는 감정 값 선택
+                    description: 감정 미선택 / 감정 3개 이상 선택 시도 / 존재하지 않는 감정 값 선택 / 위기 표현 감지(CRISIS_DETECTED, 아무것도 저장하지 않음)
                     content:
                         application/json:
                             schema:
