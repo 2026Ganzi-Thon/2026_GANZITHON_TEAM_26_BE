@@ -29,8 +29,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DailyStat extends BaseTimeEntity {
 
-  private static final int BASE_SEND_COUNT = 5;
-
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "id")
@@ -49,9 +47,6 @@ public class DailyStat extends BaseTimeEntity {
   @Column(name = "sent_count", nullable = false)
   private int sentCount;
 
-  @Column(name = "bonus_send_count", nullable = false)
-  private int bonusSendCount;
-
   @Column(name = "last_sent_at")
   private LocalDateTime lastSentAt;
 
@@ -61,18 +56,9 @@ public class DailyStat extends BaseTimeEntity {
     this.statDate = statDate;
     this.pickCount = 0;
     this.sentCount = 0;
-    this.bonusSendCount = 0;
   }
 
   public void increasePickCount() {
     this.pickCount++;
-  }
-
-  public void increaseBonusSendCount() {
-    this.bonusSendCount++;
-  }
-
-  public int getRemainingSendableCount() {
-    return BASE_SEND_COUNT + bonusSendCount - sentCount;
   }
 }

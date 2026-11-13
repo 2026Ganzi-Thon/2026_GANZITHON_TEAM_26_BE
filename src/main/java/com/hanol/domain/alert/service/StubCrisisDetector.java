@@ -1,13 +1,14 @@
 package com.hanol.domain.alert.service;
 
-import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 
-// AI 연결 전 임시 구현
-@Component
+@RequiredArgsConstructor
 public class StubCrisisDetector implements CrisisDetector {
+
+  private final CrisisKeywordMatcher keywordMatcher;
 
   @Override
   public boolean isCrisis(String content) {
-    return false;
+    return keywordMatcher.matches(content);
   }
 }

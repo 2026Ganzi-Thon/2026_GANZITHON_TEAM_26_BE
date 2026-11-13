@@ -13,7 +13,7 @@ public enum Emotion {
   LONELY("혼자인 것 같아요"),
   EXHAUSTED("지쳐서 아무 생각이 없어요"),
   INADEQUATE("내가 부족한 것 같아요"),
-  NO_ONE_TO_TALK("말할 데가 없어요"),
+  NOWHERE_TO_VENT("화를 풀 곳이 없어요"),
   TEARFUL("괜히 눈물이 나요"),
   RESTLESS("쉬고 싶은데 못 쉬어요"),
   OVERWHELMED("사람들이 버거워요"),
