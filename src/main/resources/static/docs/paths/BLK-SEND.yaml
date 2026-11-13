@@ -21,13 +21,13 @@ cheerAvailability:
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/UnauthorizedError"
       "429":
         description: 오늘 보낼 수 있는 개수 소진(0개)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/TooManyRequestsError"
 
 cheerSend:
   post:
@@ -60,25 +60,25 @@ cheerSend:
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
         description: 본문 길이 0자 또는 50자 초과 / 대상 감정 미선택 / 1차 금칙어 필터 걸림 또는 2차 AI 분류 부적절 판정
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/BadRequestError"
       "429":
         description: 오늘 보낼 수 있는 개수 소진(0개)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/TooManyRequestsError"
       "500":
         description: 서버 전송 실패(작성 내용 유지)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/InternalServerError"
 
 schemas:
   CheerAvailabilityData:

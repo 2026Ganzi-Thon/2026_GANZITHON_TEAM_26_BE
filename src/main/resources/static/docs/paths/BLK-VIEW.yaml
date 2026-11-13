@@ -28,19 +28,19 @@ blanketView:
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/UnauthorizedError"
       "403":
         description: 타인의 담요 조회 시도
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/ForbiddenError"
       "404":
         description: 존재하지 않는 담요 번호 조회
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/NotFoundError"
 
 blanketSlotView:
   get:
@@ -79,19 +79,19 @@ blanketSlotView:
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/UnauthorizedError"
       "403":
         description: 타인의 담요 칸 조회 시도
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/ForbiddenError"
       "404":
         description: 빈 칸 조회
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/NotFoundError"
 
 schemas:
   BlanketViewData:

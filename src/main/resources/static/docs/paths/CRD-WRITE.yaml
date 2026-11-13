@@ -27,13 +27,13 @@ moodStoryCheck:
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
         description: 300자 초과
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/BadRequestError"
 
 schemas:
   StoryCheckRequest:

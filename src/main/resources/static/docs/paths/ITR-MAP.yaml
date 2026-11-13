@@ -23,19 +23,19 @@ interactionMap:
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
         description: 오늘 기록 없음
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/BadRequestError"
       "500":
         description: 인원 집계 조회 실패
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/Error"
+              $ref: "../components/common.yaml#/InternalServerError"
 
 schemas:
   InteractionMapData:
