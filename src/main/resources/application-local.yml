@@ -23,3 +23,6 @@ app:
   jwt:
     # 로컬 전용 키 (서버에서는 절대 사용 금지 - dev 서버는 JWT_SECRET 환경변수 필수)
     secret: ${JWT_SECRET:2rQ9y1VxcGQ3pGg2uUEuVexmOfps5vCboWUiYHoVKuA=}
+  cheer:
+    # 로컬 전용 키 (서버에서는 절대 사용 금지 - dev 서버는 CHEER_SENDER_HMAC_SECRET 환경변수 필수)
+    sender-hmac-secret: ${CHEER_SENDER_HMAC_SECRET:TA+LsoNYxAQmoq9uXDuTpwEX5c7WcHIHF9uJROgEBYg=}

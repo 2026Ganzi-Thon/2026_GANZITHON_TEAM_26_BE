@@ -15,3 +15,5 @@ spring:
 app:
   jwt:
     secret: 3genv/NxOtjm57CHVRhOpUWETApTT7Rr4WRfHvp6kgk=
+  cheer:
+    sender-hmac-secret: b7IVHU8KOLccrQ6ms79wR0XvpvquGStj1LvBZu572Pw=

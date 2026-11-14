@@ -86,3 +86,5 @@ app:
     api-key: ${AI_API_KEY:}
     base-url: ${AI_BASE_URL:}
     model: ${AI_MODEL:}
+  cheer:
+    sender-hmac-secret: ${CHEER_SENDER_HMAC_SECRET}
