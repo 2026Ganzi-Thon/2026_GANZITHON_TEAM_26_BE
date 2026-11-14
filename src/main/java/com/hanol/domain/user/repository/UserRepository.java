@@ -1,9 +1,11 @@
 package com.hanol.domain.user.repository;
 
 import com.hanol.domain.user.entity.User;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +15,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
   Optional<User> findByEmail(String email);
 
   boolean existsByEmail(String email);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select u from User u where u.id = :userId")
+  Optional<User> findByIdForUpdate(@Param("userId") Long userId);
 
   /**
    * 로그인 실패 횟수를 DB 에서 원자적으로 1 올리고, 이번 실패로 maxCount 에 도달하면 해제 시각을 기록한다.
