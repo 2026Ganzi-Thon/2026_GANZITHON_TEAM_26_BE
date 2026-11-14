@@ -11,6 +11,7 @@ import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
 import com.hanol.domain.mood.entity.MoodRecordCard;
 import com.hanol.domain.mood.entity.Story;
+import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.domain.mood.repository.StoryRepository;
@@ -59,14 +60,9 @@ public class MoodService {
 
     String story = request.story();
     boolean hasStory = story != null && !story.isBlank();
-    if (hasStory) {
-      try {
-        if (crisisDetector.isCrisis(story)) {
-          log.info("Crisis expression detected in mood record story. userId={}", userId);
-        }
-      } catch (BusinessException exception) {
-        log.warn("Crisis re-check failed, saving record anyway. userId={}", userId);
-      }
+    if (hasStory && crisisDetector.isCrisis(story)) {
+      log.info("Crisis expression detected in mood record story. userId={}", userId);
+      throw new BusinessException(MoodErrorCode.CRISIS_DETECTED);
     }
 
     return transactionTemplate.execute(status -> saveRecord(userId, emotions, story, hasStory));
