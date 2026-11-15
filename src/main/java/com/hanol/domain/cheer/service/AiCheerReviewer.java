@@ -6,15 +6,17 @@ import com.hanol.global.exception.CommonErrorCode;
 import com.hanol.infra.ai.AiChatClient;
 import com.hanol.infra.ai.AiClientException;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** 정규식(연락처·링크)과 위험 단어를 먼저 보고, 나머지는 AI 가 8가지 중 하나로 분류한다. */
+/** AI 가 8가지 중 하나로 분류하고, 연락처·링크 정규식에 걸리면 그보다 심각한 사유가 아닐 때 CONTACT_OR_LINK 로 막는다. */
 @Slf4j
 @RequiredArgsConstructor
 public class AiCheerReviewer implements CheerReviewer {
@@ -71,6 +73,12 @@ public class AiCheerReviewer implements CheerReviewer {
           List.of("result"),
           "additionalProperties",
           false);
+  private static final Set<CheerReviewResult> OVER_CONTACT =
+      EnumSet.of(
+          CheerReviewResult.CRISIS,
+          CheerReviewResult.HURTFUL,
+          CheerReviewResult.DEMEANING,
+          CheerReviewResult.HARSH_LANGUAGE);
 
   private final CrisisKeywordMatcher keywordMatcher;
   private final CheerContactMatcher contactMatcher;
@@ -80,16 +88,11 @@ public class AiCheerReviewer implements CheerReviewer {
   @Override
   public CheerReviewResult review(String content) {
     boolean keywordMatched = keywordMatcher.matches(content);
-    boolean contactMatched = contactMatcher.matches(content);
-    if (contactMatched && !keywordMatched) {
-      return CheerReviewResult.CONTACT_OR_LINK;
-    }
-
     CheerReviewResult aiResult = classify(content, keywordMatched);
-    if (aiResult == CheerReviewResult.CRISIS) {
-      return CheerReviewResult.CRISIS;
+    if (OVER_CONTACT.contains(aiResult)) {
+      return aiResult;
     }
-    return contactMatched ? CheerReviewResult.CONTACT_OR_LINK : aiResult;
+    return contactMatcher.matches(content) ? CheerReviewResult.CONTACT_OR_LINK : aiResult;
   }
 
   private CheerReviewResult classify(String content, boolean keywordMatched) {
