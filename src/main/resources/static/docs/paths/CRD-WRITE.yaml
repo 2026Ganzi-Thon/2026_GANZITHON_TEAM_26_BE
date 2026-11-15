@@ -23,17 +23,24 @@ moodStoryCheck:
                     data:
                       $ref: "#/schemas/StoryCheckData"
       "401":
-        description: 로그인하지 않은 상태로 접근
+        description: 토큰 없음·위조·손상 / Access 토큰 만료(재발급으로 무효화된 경우 포함)
         content:
           application/json:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
+            examples:
+              unauthorized:
+                summary: 토큰 없음·위조·손상
+                value: { code: 401_UNAUTHORIZED, message: 로그인이 필요합니다. }
+              tokenExpired:
+                summary: Access 토큰 만료(재발급으로 무효화된 경우 포함)
+                value: { code: 401_TOKEN_EXPIRED, message: 만료된 토큰입니다. }
       "400":
-        description: 300자 초과
+        description: 300자 초과 또는 미입력(Bean Validation)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "../components/common.yaml#/InvalidInputError"
 
 schemas:
   StoryCheckRequest:
@@ -67,6 +74,16 @@ schemas:
         type: string
         maxLength: 300
         nullable: true
+
+  CrisisDetectedError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 400_CRISIS_DETECTED
+      message:
+        type: string
+        example: 위기 표현이 감지되어 기록을 저장하지 않았어요.
 
   MoodRecordCreateData:
     type: object

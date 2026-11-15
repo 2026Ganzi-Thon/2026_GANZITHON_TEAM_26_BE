@@ -18,15 +18,15 @@ signup:
             schema:
               $ref: "../components/common.yaml#/SuccessNoData"
       "400":
-        description: 이메일 형식 불일치 / 비밀번호 8~20자 범위 밖 / 필수 동의 3개 중 미포함 항목 존재(도메인 전용) / 이메일 인증 미완료(도메인 전용, Redis 키 없음)
+        description: 이메일 형식 불일치 / 비밀번호 8~20자 범위 밖(Bean Validation) / 필수 동의 3개 중 미포함 항목 존재(도메인 전용) / 이메일 인증 미완료(도메인 전용, Redis 키 없음)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "../components/common.yaml#/InvalidInputError"
             examples:
-              badRequest:
+              invalidInput:
                 summary: 이메일 형식 불일치 / 비밀번호 8~20자 범위 밖
-                value: { code: 400_BAD_REQUEST, message: 잘못된 요청입니다. }
+                value: { code: 400_INVALID_INPUT, message: 입력값이 올바르지 않습니다. }
               termsNotAgreed:
                 summary: 필수 동의 3개 중 미포함 항목 존재(도메인 전용)
                 value: { code: 400_TERMS_NOT_AGREED, message: 필수 약관에 모두 동의해 주세요. }
@@ -66,11 +66,11 @@ emailVerificationSend:
             schema:
               $ref: "../components/common.yaml#/SuccessNoData"
       "400":
-        description: 이메일 형식 불일치
+        description: 이메일 형식 불일치(Bean Validation)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "../components/common.yaml#/InvalidInputError"
       "409":
         description: 이미 가입된 이메일로 인증 요청 — 도메인 전용
         content:
@@ -78,17 +78,11 @@ emailVerificationSend:
             schema:
               $ref: "#/schemas/EmailDuplicatedError"
       "429":
-        description: 5분 이내 재발송 시도(Redis 키가 아직 살아 있음) — 도메인 전용
+        description: 5분 내 5회 초과 발송 시도 / 이미 차단된 상태에서 재요청(Redis 키가 아직 살아 있음) — 도메인 전용
         content:
           application/json:
             schema:
               $ref: "#/schemas/EmailRequestLimitedError"
-      "500":
-        description: 메일 발송 실패
-        content:
-          application/json:
-            schema:
-              $ref: "../components/common.yaml#/InternalServerError"
 
 emailVerificationConfirm:
   post:
@@ -110,15 +104,15 @@ emailVerificationConfirm:
             schema:
               $ref: "../components/common.yaml#/SuccessNoData"
       "400":
-        description: 인증번호 형식 불일치(6자리 숫자가 아님) / 인증번호 불일치(도메인 전용)
+        description: 인증번호 형식 불일치(6자리 숫자가 아님, Bean Validation) / 인증번호 불일치(도메인 전용)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "../components/common.yaml#/InvalidInputError"
             examples:
-              badRequest:
+              invalidInput:
                 summary: 인증번호 형식 불일치(6자리 숫자가 아님)
-                value: { code: 400_BAD_REQUEST, message: 잘못된 요청입니다. }
+                value: { code: 400_INVALID_INPUT, message: 입력값이 올바르지 않습니다. }
               codeMismatch:
                 summary: 인증번호 불일치(도메인 전용)
                 value: { code: 400_EMAIL_CODE_MISMATCH, message: 인증번호가 일치하지 않습니다. }
@@ -128,6 +122,12 @@ emailVerificationConfirm:
           application/json:
             schema:
               $ref: "#/schemas/EmailCodeNotFoundError"
+      "429":
+        description: 인증번호 5회 연속 틀려 차단(또는 차단된 상태에서 재시도) — 도메인 전용
+        content:
+          application/json:
+            schema:
+              $ref: "#/schemas/EmailRequestLimitedError"
 
 login:
   post:
@@ -154,6 +154,12 @@ login:
                   properties:
                     data:
                       $ref: "#/schemas/LoginData"
+      "400":
+        description: 이메일 또는 비밀번호 미입력(Bean Validation)
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/InvalidInputError"
       "401":
         description: 존재하지 않는 이메일 또는 비밀번호 불일치(구분하지 않음) — 도메인 전용
         content:

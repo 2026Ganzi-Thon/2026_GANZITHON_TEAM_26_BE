@@ -34,6 +34,26 @@ UnauthorizedError:
       type: string
       example: 로그인이 필요합니다.
 
+TokenExpiredError:
+  type: object
+  properties:
+    code:
+      type: string
+      example: 401_TOKEN_EXPIRED
+    message:
+      type: string
+      example: 만료된 토큰입니다.
+
+InvalidInputError:
+  type: object
+  properties:
+    code:
+      type: string
+      example: 400_INVALID_INPUT
+    message:
+      type: string
+      example: 입력값이 올바르지 않습니다.
+
 ForbiddenError:
   type: object
   properties:
