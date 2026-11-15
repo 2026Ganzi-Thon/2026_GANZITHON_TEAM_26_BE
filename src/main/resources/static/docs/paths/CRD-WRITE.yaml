@@ -101,7 +101,3 @@ schemas:
       todayCount:
         type: integer
         description: 오늘 몇 번째 기록인지(1부터 시작)
-      remainingSendableCount:
-        type: integer
-        nullable: true
-        description: 사연이 포함된 경우에만 갱신된 "오늘 보낼 수 있는 개수"가 내려온다([[BLK-SEND-001]])
