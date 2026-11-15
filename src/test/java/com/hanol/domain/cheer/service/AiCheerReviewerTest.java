@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.hanol.domain.alert.service.CrisisKeywordMatcher;
 import com.hanol.global.exception.BusinessException;
@@ -29,6 +28,9 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(MockitoExtension.class)
 class AiCheerReviewerTest {
 
+  private static final String CONTACT_WITHOUT_KEYWORD = "힘들면 010-1234-5678로 연락해요";
+  private static final String CONTACT_WITH_KEYWORD = "죽고 싶었는데 버텼어요 010-1234-5678";
+
   @Mock private AiChatClient aiChatClient;
 
   private AiCheerReviewer reviewer;
@@ -43,14 +45,6 @@ class AiCheerReviewerTest {
             JsonMapper.builder().build());
   }
 
-  @Test
-  @DisplayName("연락처만 걸리면 AI 를 부르지 않고 CONTACT_OR_LINK")
-  void contactOnlySkipsAi() {
-    assertThat(reviewer.review("010-1234-5678로 연락해요")).isEqualTo(CheerReviewResult.CONTACT_OR_LINK);
-
-    verifyNoInteractions(aiChatClient);
-  }
-
   @ParameterizedTest
   @EnumSource(CheerReviewResult.class)
   @DisplayName("연락처가 없으면 AI 결과를 그대로 쓴다")
@@ -60,21 +54,29 @@ class AiCheerReviewerTest {
     assertThat(reviewer.review("산책하면 좀 나아졌어요")).isEqualTo(aiResult);
   }
 
-  @Test
-  @DisplayName("위험 단어와 연락처가 같이 있고 AI 가 CRISIS 면 CRISIS")
-  void crisisWinsOverContact() {
-    givenAiReturns("{\"result\":\"CRISIS\"}");
+  @ParameterizedTest
+  @EnumSource(
+      value = CheerReviewResult.class,
+      names = {"CRISIS", "HURTFUL", "DEMEANING", "HARSH_LANGUAGE"})
+  @DisplayName("연락처가 있어도 AI 가 연락처보다 심각한 사유로 분류하면 그 결과")
+  void severeAiResultWinsOverContact(CheerReviewResult aiResult) {
+    givenAiReturns("{\"result\":\"" + aiResult.name() + "\"}");
 
-    assertThat(reviewer.review("요즘도 죽고 싶어요 010-1234-5678")).isEqualTo(CheerReviewResult.CRISIS);
+    assertThat(reviewer.review(CONTACT_WITHOUT_KEYWORD)).isEqualTo(aiResult);
+    assertThat(reviewer.review(CONTACT_WITH_KEYWORD)).isEqualTo(aiResult);
   }
 
-  @Test
-  @DisplayName("위험 단어와 연락처가 같이 있고 AI 가 NORMAL 이면 CONTACT_OR_LINK")
-  void contactWinsOverNormal() {
-    givenAiReturns("{\"result\":\"NORMAL\"}");
+  @ParameterizedTest
+  @EnumSource(
+      value = CheerReviewResult.class,
+      names = {"NORMAL", "DISMISSIVE", "OFF_TOPIC", "CONTACT_OR_LINK"})
+  @DisplayName("연락처가 있고 AI 결과가 연락처보다 가벼우면 CONTACT_OR_LINK")
+  void contactWinsOverMilderAiResult(CheerReviewResult aiResult) {
+    givenAiReturns("{\"result\":\"" + aiResult.name() + "\"}");
 
-    assertThat(reviewer.review("죽고 싶었는데 버텼어요 010-1234-5678"))
+    assertThat(reviewer.review(CONTACT_WITHOUT_KEYWORD))
         .isEqualTo(CheerReviewResult.CONTACT_OR_LINK);
+    assertThat(reviewer.review(CONTACT_WITH_KEYWORD)).isEqualTo(CheerReviewResult.CONTACT_OR_LINK);
   }
 
   @Test
