@@ -3,7 +3,6 @@ cheerAvailability:
     tags: [BLK]
     operationId: BLK-SEND-001
     summary: 패치 보내기 가능 확인
-    description: 오늘 보낼 수 있는 개수는 자정 기준 매일 5개 지급, 마음 기록 저장(CRD-WRITE-003) 시 사연이 포함되어 있으면 1개씩 추가 지급된다(상한 없음).
     responses:
       "200":
         description: 작성 가능 여부와 질문 목록
@@ -22,12 +21,6 @@ cheerAvailability:
           application/json:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
-      "429":
-        description: 오늘 보낼 수 있는 개수 소진(0개)
-        content:
-          application/json:
-            schema:
-              $ref: "../components/common.yaml#/TooManyRequestsError"
 
 cheerSend:
   post:
@@ -67,12 +60,6 @@ cheerSend:
           application/json:
             schema:
               $ref: "../components/common.yaml#/BadRequestError"
-      "429":
-        description: 오늘 보낼 수 있는 개수 소진(0개)
-        content:
-          application/json:
-            schema:
-              $ref: "../components/common.yaml#/TooManyRequestsError"
       "500":
         description: 서버 전송 실패(작성 내용 유지)
         content:
@@ -86,9 +73,7 @@ schemas:
     properties:
       sendable:
         type: boolean
-        description: 오늘 보낼 수 있는 개수가 0개면 false
-      remainingSendableCount:
-        type: integer
+        description: 지금 보낼 수 없으면 false
       questions:
         type: array
         items:
@@ -125,6 +110,3 @@ schemas:
       crisisDetected:
         type: boolean
         description: true면 위기 안내 화면(ALRT-HELP-002)으로 안내한다.
-      remainingSendableCount:
-        type: integer
-        description: 발송 성공 시 1 차감된 값. crisisDetected가 true면 차감 전 값이 그대로 내려온다.
