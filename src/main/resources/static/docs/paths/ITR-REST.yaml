@@ -1,0 +1,99 @@
+restRoom:
+  post:
+    tags: [ITR]
+    operationId: ITR-REST-001-ENTER
+    summary: 함께 쉬는 방 입장
+    description: >-
+      패치 받기 완료 여부를 확인하고 입장 시각을 기록한다. 퇴장 후 10분 안에 재입장하면 기존 입장 시각을 이어 쓴다.
+      현재 인원은 최근 60초 이내 신호를 보낸 사용자 수(익명, 방 전체 동시 접속 인원)로 집계한다.
+    responses:
+      "200":
+        description: 입장 처리 완료
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/RestRoomEntryData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/UnauthorizedError"
+      "400":
+        description: 패치 받기 미완료 상태에서 입장 시도
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/BadRequestError"
+  put:
+    tags: [ITR]
+    operationId: ITR-REST-001-SIGNAL
+    summary: 함께 쉬는 방 신호(하트비트)
+    description: >-
+      30초마다 호출해 신호 시각을 갱신한다. 최근 60초 이내 신호를 보낸 사용자를 현재 인원으로 집계해 내려준다.
+    responses:
+      "200":
+        description: 신호 처리 완료
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/RestRoomSignalData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/UnauthorizedError"
+      "400":
+        description: 입장 기록이 없는 상태(입장 시각 만료 등)에서 신호 전송 — 프론트는 입장 API를 다시 호출
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/BadRequestError"
+  delete:
+    tags: [ITR]
+    operationId: ITR-REST-001-EXIT
+    summary: 함께 쉬는 방 퇴장
+    description: 현재 인원 집계에서 즉시 제외한다.
+    responses:
+      "200":
+        description: 퇴장 처리 완료
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/SuccessNoData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/UnauthorizedError"
+
+schemas:
+  RestRoomEntryData:
+    type: object
+    properties:
+      currentCount:
+        type: integer
+        description: 최근 60초 이내 신호를 보낸 방 전체 동시 접속 인원(익명)
+      enteredAt:
+        type: string
+        format: date-time
+        description: 입장 시각. 10분 내 재입장이면 이전 입장 시각을 그대로 내려준다(스톱워치 계산 기준).
+
+  RestRoomSignalData:
+    type: object
+    properties:
+      currentCount:
+        type: integer
+        description: 최근 60초 이내 신호를 보낸 방 전체 동시 접속 인원(익명)
