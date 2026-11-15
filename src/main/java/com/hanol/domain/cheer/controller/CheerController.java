@@ -2,7 +2,9 @@ package com.hanol.domain.cheer.controller;
 
 import com.hanol.domain.cheer.dto.request.CheerSendRequest;
 import com.hanol.domain.cheer.dto.response.CheerAvailabilityResponse;
+import com.hanol.domain.cheer.dto.response.CheerReceiveResponse;
 import com.hanol.domain.cheer.dto.response.CheerSendResponse;
+import com.hanol.domain.cheer.service.CheerReceiveService;
 import com.hanol.domain.cheer.service.CheerService;
 import com.hanol.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CheerController {
 
   private final CheerService cheerService;
+  private final CheerReceiveService cheerReceiveService;
 
   /** BLK-SEND-001 보내기 가능 확인. */
   @GetMapping("/availability")
@@ -32,5 +35,11 @@ public class CheerController {
   public ApiResponse<CheerSendResponse> send(
       @AuthenticationPrincipal Long userId, @Valid @RequestBody CheerSendRequest request) {
     return ApiResponse.ok(cheerService.send(userId, request));
+  }
+
+  /** BLK-RCV-001·002 패치 받기. 오늘 가장 마지막 기록의 도안별로 받는다. */
+  @PostMapping("/receive")
+  public ApiResponse<CheerReceiveResponse> receive(@AuthenticationPrincipal Long userId) {
+    return ApiResponse.ok(cheerReceiveService.receive(userId));
   }
 }

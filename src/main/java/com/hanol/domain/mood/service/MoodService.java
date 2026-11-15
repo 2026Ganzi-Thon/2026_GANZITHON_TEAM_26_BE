@@ -190,7 +190,9 @@ public class MoodService {
             .map(
                 card ->
                     new MoodDetailPatchResponse(
-                        card.getEmotion().name(), card.getReceiveStatus(), null))
+                        card.getEmotion().name(),
+                        card.getReceiveStatus(),
+                        card.getReceivedMessage()))
             .toList(),
         story);
   }

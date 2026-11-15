@@ -14,6 +14,7 @@ public enum CommonErrorCode implements ErrorCode {
   NOT_FOUND(HttpStatus.NOT_FOUND, "404_NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."),
   METHOD_NOT_ALLOWED(
       HttpStatus.METHOD_NOT_ALLOWED, "405_METHOD_NOT_ALLOWED", "지원하지 않는 HTTP 메서드입니다."),
+  CONFLICT(HttpStatus.CONFLICT, "409_CONFLICT", "이미 처리된 요청입니다."),
   INTERNAL_SERVER_ERROR(
       HttpStatus.INTERNAL_SERVER_ERROR, "500_INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다.");
 
