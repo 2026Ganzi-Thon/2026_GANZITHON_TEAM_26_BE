@@ -21,4 +21,6 @@ public interface MoodRecordRepository extends JpaRepository<MoodRecord, Long> {
 
   Optional<MoodRecord> findFirstByUserIdAndRecordDateOrderByDailySeqDesc(
       Long userId, LocalDate recordDate);
+
+  boolean existsByUserIdAndRecordDate(Long userId, LocalDate recordDate);
 }
