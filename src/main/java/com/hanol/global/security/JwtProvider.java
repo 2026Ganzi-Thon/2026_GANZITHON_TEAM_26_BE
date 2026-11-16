@@ -63,7 +63,11 @@ public class JwtProvider {
     if (!expectedType.name().equals(tokenType) || sessionId == null) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
-    return new TokenClaims(Long.valueOf(claims.getSubject()), sessionId);
+    try {
+      return new TokenClaims(Long.valueOf(claims.getSubject()), sessionId);
+    } catch (NumberFormatException exception) {
+      throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
+    }
   }
 
   private String createToken(
