@@ -61,4 +61,9 @@ public class DailyStat extends BaseTimeEntity {
   public void increasePickCount() {
     this.pickCount++;
   }
+
+  public void increaseSentCount(LocalDateTime sentAt) {
+    this.sentCount++;
+    this.lastSentAt = sentAt;
+  }
 }
