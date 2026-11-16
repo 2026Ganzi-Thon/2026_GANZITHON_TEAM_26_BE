@@ -24,4 +24,6 @@ public interface BlanketPieceRepository extends JpaRepository<BlanketPiece, Long
           + " where p.blanket.id = :blanketId and p.slotIndex = :slotIndex")
   Optional<BlanketPiece> findWithCheerByBlanketIdAndSlotIndex(
       @Param("blanketId") Long blanketId, @Param("slotIndex") int slotIndex);
+
+  Optional<BlanketPiece> findFirstByCheerIdAndBlanketUserId(Long cheerId, Long userId);
 }
