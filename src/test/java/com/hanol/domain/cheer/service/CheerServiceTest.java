@@ -14,9 +14,11 @@ import com.hanol.domain.cheer.dto.response.CheerSendResponse;
 import com.hanol.domain.cheer.dto.response.EmotionQuestionGroup;
 import com.hanol.domain.cheer.entity.Cheer;
 import com.hanol.domain.cheer.entity.CheerStatus;
+import com.hanol.domain.cheer.entity.SendRestriction;
 import com.hanol.domain.cheer.exception.CheerErrorCode;
 import com.hanol.domain.cheer.repository.CheerRepository;
 import com.hanol.domain.cheer.repository.CheerRepository.EmotionCount;
+import com.hanol.domain.cheer.repository.SendRestrictionRepository;
 import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.user.entity.DailyStat;
 import com.hanol.domain.user.entity.User;
@@ -57,6 +59,7 @@ class CheerServiceTest {
   @Mock private CheerRepository cheerRepository;
   @Mock private CheerReviewer cheerReviewer;
   @Mock private CheerSenderHasher cheerSenderHasher;
+  @Mock private SendRestrictionRepository sendRestrictionRepository;
   @Mock private UserRepository userRepository;
   @Mock private DailyStatRepository dailyStatRepository;
   @Mock private TransactionTemplate transactionTemplate;
@@ -70,6 +73,7 @@ class CheerServiceTest {
             cheerRepository,
             cheerReviewer,
             cheerSenderHasher,
+            sendRestrictionRepository,
             userRepository,
             dailyStatRepository,
             CLOCK,
@@ -81,7 +85,7 @@ class CheerServiceTest {
   void availabilityContainsAllEmotions() {
     given(cheerRepository.countGroupByTargetEmotion(CheerStatus.WAITING)).willReturn(List.of());
 
-    CheerAvailabilityResponse response = cheerService.getAvailability();
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
 
     assertThat(response.sendable()).isTrue();
     assertThat(response.questions())
@@ -96,7 +100,7 @@ class CheerServiceTest {
     given(cheerRepository.countGroupByTargetEmotion(CheerStatus.WAITING))
         .willReturn(List.of(count(Emotion.LONELY, 2), count(Emotion.ANXIETY, 1)));
 
-    CheerAvailabilityResponse response = cheerService.getAvailability();
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
 
     assertThat(response.questions())
         .extracting(EmotionQuestionGroup::emotion)
@@ -119,7 +123,7 @@ class CheerServiceTest {
   void questionsAreCheerQuestionOfEachEmotion() {
     given(cheerRepository.countGroupByTargetEmotion(CheerStatus.WAITING)).willReturn(List.of());
 
-    CheerAvailabilityResponse response = cheerService.getAvailability();
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
 
     assertThat(response.questions())
         .allSatisfy(
@@ -132,9 +136,47 @@ class CheerServiceTest {
   void countsOnlyWaitingCheers() {
     given(cheerRepository.countGroupByTargetEmotion(CheerStatus.WAITING)).willReturn(List.of());
 
-    cheerService.getAvailability();
+    cheerService.getAvailability(USER_ID);
 
     verify(cheerRepository).countGroupByTargetEmotion(CheerStatus.WAITING);
+  }
+
+  @Test
+  @DisplayName("보내기 제한 중이면 sendable false, 해제 시각, 빈 질문 목록이고 대기 수를 세지 않는다")
+  void availabilityWhenRestricted() {
+    givenRestriction(NOW.plusHours(3));
+
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
+
+    assertThat(response.sendable()).isFalse();
+    assertThat(response.restrictedUntil()).isEqualTo(NOW.plusHours(3));
+    assertThat(response.questions()).isEmpty();
+    verify(cheerRepository, never()).countGroupByTargetEmotion(any());
+  }
+
+  @Test
+  @DisplayName("해제 시각이 지났으면 sendable true, restrictedUntil null, 질문 목록이 있다")
+  void availabilityAfterRestrictionExpired() {
+    givenRestriction(NOW.minusMinutes(1));
+    given(cheerRepository.countGroupByTargetEmotion(CheerStatus.WAITING)).willReturn(List.of());
+
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
+
+    assertThat(response.sendable()).isTrue();
+    assertThat(response.restrictedUntil()).isNull();
+    assertThat(response.questions()).hasSize(11);
+  }
+
+  @Test
+  @DisplayName("보내기 제한 중에 보내면 403_CHEER_SEND_RESTRICTED 이고 검수하지 않는다")
+  void rejectSendWhenRestricted() {
+    givenRestriction(NOW.plusHours(3));
+
+    assertThatThrownBy(() -> cheerService.send(USER_ID, REQUEST))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(CheerErrorCode.CHEER_SEND_RESTRICTED);
+    verify(cheerReviewer, never()).review(any());
   }
 
   @Test
@@ -208,6 +250,14 @@ class CheerServiceTest {
         .extracting("errorCode")
         .isEqualTo(CheerErrorCode.valueOf("CHEER_" + result.name()));
     verifyNoInteractions(transactionTemplate, userRepository, dailyStatRepository, cheerRepository);
+  }
+
+  private void givenRestriction(LocalDateTime restrictedUntil) {
+    SendRestriction restriction = SendRestriction.builder().senderHash(SENDER_HASH).build();
+    restriction.restrictUntil(restrictedUntil);
+    given(cheerSenderHasher.hash(USER_ID)).willReturn(SENDER_HASH);
+    given(sendRestrictionRepository.findBySenderHash(SENDER_HASH))
+        .willReturn(Optional.of(restriction));
   }
 
   private void givenNormalSave(User user) {

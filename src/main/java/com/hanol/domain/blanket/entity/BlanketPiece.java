@@ -64,4 +64,10 @@ public class BlanketPiece extends BaseTimeEntity {
     this.content = content;
     this.receivedAt = receivedAt;
   }
+
+  /** 신고로 숨겨진 패치를 새 패치(또는 기본 메시지면 cheer null)로 바꾼다. 칸 위치·받은 시각은 그대로. */
+  public void replace(Cheer cheer, String content) {
+    this.cheer = cheer;
+    this.content = content;
+  }
 }
