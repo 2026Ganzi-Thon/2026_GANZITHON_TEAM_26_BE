@@ -193,7 +193,7 @@ class CheerReportServiceTest {
     CheerReportResponse response = service.report(USER_ID, CHEER_ID);
 
     assertThat(response.replaced())
-        .isEqualTo(new ReceivedCheerResponse(null, Emotion.LONELY, GENERATED, true));
+        .isEqualTo(ReceivedCheerResponse.ofDefault(Emotion.LONELY, GENERATED, SLOT_INDEX, false));
     assertThat(piece.getCheer()).isNull();
     assertThat(piece.getContent()).isEqualTo(GENERATED);
     assertThat(piece.getReceivedAt()).isEqualTo(RECEIVED_AT);

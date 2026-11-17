@@ -203,13 +203,16 @@ public class MoodService {
             .map(
                 card ->
                     new MoodDetailPatchResponse(
-                        card.getEmotion().name(),
-                        card.getReceiveStatus(),
-                        card.getBlanketPiece() == null
-                            ? null
-                            : card.getBlanketPiece().getContent()))
+                        card.getEmotion().name(), card.getReceiveStatus(), patchMessage(card)))
             .toList(),
         story);
+  }
+
+  private static String patchMessage(MoodRecordCard card) {
+    if (card.getBlanketPiece() != null) {
+      return card.getBlanketPiece().getContent();
+    }
+    return card.getComfortMessage();
   }
 
   @Transactional

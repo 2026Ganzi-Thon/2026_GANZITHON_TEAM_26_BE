@@ -179,11 +179,11 @@ _인증번호 확인_
 
 **예외 케이스**
 
-| Status Code | Status Name  | Description                                    |
-| ----------- | ------------ | ---------------------------------------------- |
-| 401         | UNAUTHORIZED | 로그인하지 않은 상태로 접근                    |
-| 400         | BAD_REQUEST  | `action` 값이 `next`/`skip`/`complete` 외의 값 |
-| 409         | CONFLICT     | 이미 온보딩 완료된 계정의 재요청               |
+| Status Code | Status Name                  | Description                                    | 참고        |
+| ----------- | ----------------------------- | ----------------------------------------------- | ----------- |
+| 401         | UNAUTHORIZED                  | 로그인하지 않은 상태로 접근                    | -           |
+| 400         | INVALID_ONBOARDING_ACTION     | `action` 값이 `next`/`skip`/`complete` 외의 값 | 도메인 전용 |
+| 409         | ONBOARDING_ALREADY_COMPLETED  | 이미 온보딩 완료된 계정의 재요청               | 도메인 전용 |
 
 ## USR-AUTH-006 토큰 재발급
 

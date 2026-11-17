@@ -119,8 +119,11 @@ public class CheerReceiveService {
         }
       }
     }
+    // 오늘 받을 게 하나도 안 남았으면(새로고침 등) 409 대신 오늘 받은 패치를 그대로 다시 내려준다.
+    // 트랜잭션 밖에서 읽은 카드는 detached 상태라 blanketPiece 지연 로딩이 깨지므로, 트랜잭션 안에서 다시 읽는다.
     if (targets.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.CONFLICT);
+      return new CheerReceiveResponse(
+          transactionTemplate.execute(status -> toResponses(findTodayCards(records))));
     }
 
     String senderHash = cheerSenderHasher.hash(userId);
@@ -190,7 +193,7 @@ public class CheerReceiveService {
                 })
             .toList();
     if (receivable.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.CONFLICT);
+      return toResponses(reloaded.values().stream().toList());
     }
     LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
 
@@ -223,8 +226,9 @@ public class CheerReceiveService {
       Emotion emotion = target.emotion();
 
       if (!target.fromQueue()) {
-        card.receiveDefaultComfort();
-        patches.add(ReceivedCheerResponse.ofDefault(emotion, defaults.get(target.cardId())));
+        String comfortMessage = defaults.get(target.cardId());
+        card.receiveDefaultComfort(comfortMessage);
+        patches.add(ReceivedCheerResponse.ofDefault(emotion, comfortMessage));
         comfortCardCount++;
         if (!comfortRecordIds.contains(target.recordId())) {
           comfortRecordIds.add(target.recordId());
@@ -253,11 +257,13 @@ public class CheerReceiveService {
                   .blanket(blanket)
                   .slotIndex(filled + 1)
                   .cheer(cheer)
+                  .emotion(emotion)
                   .content(message)
                   .receivedAt(now)
                   .build());
       filled++;
-      if (filled >= Blanket.SLOT_COUNT) {
+      boolean blanketCompleted = filled >= Blanket.SLOT_COUNT;
+      if (blanketCompleted) {
         blanket.complete(now);
         log.info("Blanket completed. blanketId={}", blanket.getId());
         blanket = null;
@@ -266,8 +272,10 @@ public class CheerReceiveService {
       card.receive(piece);
       patches.add(
           cheer != null
-              ? ReceivedCheerResponse.ofCheer(cheer.getId(), emotion, message)
-              : ReceivedCheerResponse.ofDefault(emotion, message));
+              ? ReceivedCheerResponse.ofCheer(
+                  cheer.getId(), emotion, message, piece.getSlotIndex(), blanketCompleted)
+              : ReceivedCheerResponse.ofDefault(
+                  emotion, message, piece.getSlotIndex(), blanketCompleted));
       queueCardCount++;
       if (!queueRecordIds.contains(target.recordId())) {
         queueRecordIds.add(target.recordId());
@@ -303,6 +311,38 @@ public class CheerReceiveService {
       }
     }
     return Optional.empty();
+  }
+
+  /** 오늘 기록의 카드를 전부 다시 읽는다. 지연 로딩이 되도록 트랜잭션 안에서 호출해야 한다. */
+  private List<MoodRecordCard> findTodayCards(List<MoodRecord> records) {
+    List<MoodRecordCard> cards = new ArrayList<>();
+    for (MoodRecord record : records) {
+      cards.addAll(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(record.getId()));
+    }
+    return cards;
+  }
+
+  /** 이미 받기 처리된 카드들을 응답으로 복원한다(새로고침 등으로 다시 요청했을 때 쓴다). */
+  private List<ReceivedCheerResponse> toResponses(List<MoodRecordCard> cards) {
+    return cards.stream().map(this::toResponse).toList();
+  }
+
+  private ReceivedCheerResponse toResponse(MoodRecordCard card) {
+    if (card.getReceiveStatus() == ReceiveStatus.DEFAULT_COMFORT) {
+      return ReceivedCheerResponse.ofDefault(card.getEmotion(), card.getComfortMessage());
+    }
+    BlanketPiece piece = card.getBlanketPiece();
+    boolean blanketCompleted = piece.getBlanket().isCompleted();
+    Cheer cheer = piece.getCheer();
+    return cheer == null
+        ? ReceivedCheerResponse.ofDefault(
+            card.getEmotion(), piece.getContent(), piece.getSlotIndex(), blanketCompleted)
+        : ReceivedCheerResponse.ofCheer(
+            cheer.getId(),
+            card.getEmotion(),
+            piece.getContent(),
+            piece.getSlotIndex(),
+            blanketCompleted);
   }
 
   private User lockUser(Long userId) {

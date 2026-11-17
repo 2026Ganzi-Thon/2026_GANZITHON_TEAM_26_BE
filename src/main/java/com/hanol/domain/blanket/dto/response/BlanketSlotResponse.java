@@ -24,7 +24,7 @@ public record BlanketSlotResponse(
         piece.getSlotIndex(),
         cheer == null ? null : cheer.getId(),
         cheer == null,
-        cheer == null ? null : cheer.getTargetEmotion(),
+        piece.getEmotion(),
         cheer == null ? null : cheer.getCreatedAt());
   }
 }

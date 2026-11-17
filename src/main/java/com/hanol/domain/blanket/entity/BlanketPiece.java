@@ -1,9 +1,12 @@
 package com.hanol.domain.blanket.entity;
 
 import com.hanol.domain.cheer.entity.Cheer;
+import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.global.common.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,6 +21,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /** 담요 한 칸. 기본 메시지면 cheer 가 null 이다. */
 @Getter
@@ -49,6 +54,12 @@ public class BlanketPiece extends BaseTimeEntity {
   @JoinColumn(name = "cheer_id")
   private Cheer cheer;
 
+  /** 기본 메시지(cheer null)여도 이 칸이 어떤 감정으로 받은 건지는 항상 알아야 한다. */
+  @Enumerated(EnumType.STRING)
+  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @Column(name = "emotion", nullable = false, length = 30)
+  private Emotion emotion;
+
   @Column(name = "content", nullable = false, length = 50)
   private String content;
 
@@ -57,10 +68,16 @@ public class BlanketPiece extends BaseTimeEntity {
 
   @Builder
   private BlanketPiece(
-      Blanket blanket, int slotIndex, Cheer cheer, String content, LocalDateTime receivedAt) {
+      Blanket blanket,
+      int slotIndex,
+      Cheer cheer,
+      Emotion emotion,
+      String content,
+      LocalDateTime receivedAt) {
     this.blanket = blanket;
     this.slotIndex = slotIndex;
     this.cheer = cheer;
+    this.emotion = emotion;
     this.content = content;
     this.receivedAt = receivedAt;
   }

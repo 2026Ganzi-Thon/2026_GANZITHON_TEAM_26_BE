@@ -10,6 +10,7 @@ import com.hanol.domain.blanket.dto.response.BlanketSlotSummaryResponse;
 import com.hanol.domain.blanket.dto.response.BlanketViewResponse;
 import com.hanol.domain.blanket.entity.BlanketPiece;
 import com.hanol.domain.blanket.repository.BlanketPieceRepository;
+import com.hanol.domain.blanket.repository.BlanketPieceRepository.SlotEmotion;
 import com.hanol.domain.blanket.repository.BlanketRepository;
 import com.hanol.domain.cheer.entity.Cheer;
 import com.hanol.domain.mood.entity.Emotion;
@@ -55,12 +56,27 @@ class BlanketServiceTest {
   }
 
   private BlanketPiece piece(int slotIndex, Cheer cheer, LocalDateTime receivedAt) {
+    Emotion emotion = cheer == null ? Emotion.ANXIETY : cheer.getTargetEmotion();
     return BlanketPiece.builder()
         .slotIndex(slotIndex)
         .cheer(cheer)
+        .emotion(emotion)
         .content(MESSAGE)
         .receivedAt(receivedAt)
         .build();
+  }
+
+  private record TestSlotEmotion(int slotIndex, Emotion emotion) implements SlotEmotion {
+
+    @Override
+    public int getSlotIndex() {
+      return slotIndex;
+    }
+
+    @Override
+    public Emotion getEmotion() {
+      return emotion;
+    }
   }
 
   private Cheer cheer() {
@@ -103,7 +119,12 @@ class BlanketServiceTest {
   @DisplayName("번호 없이 조회하면 가장 최근 담요, 채워진 칸이 표시된다")
   void currentBlanketIsLatest() {
     given(blanketRepository.findIdsByUserIdOrderByIdAsc(USER_ID)).willReturn(THREE_BLANKETS);
-    given(blanketPieceRepository.findSlotIndexesByBlanketId(40L)).willReturn(List.of(1, 2, 5));
+    given(blanketPieceRepository.findSlotEmotionsByBlanketId(40L))
+        .willReturn(
+            List.of(
+                new TestSlotEmotion(1, Emotion.ANXIETY),
+                new TestSlotEmotion(2, Emotion.LONELY),
+                new TestSlotEmotion(5, Emotion.ANXIETY)));
 
     BlanketViewResponse response = service.getBlanket(USER_ID, null);
 
@@ -113,6 +134,14 @@ class BlanketServiceTest {
         .filteredOn(BlanketSlotSummaryResponse::filled)
         .extracting(BlanketSlotSummaryResponse::slotIndex)
         .containsExactly(1, 2, 5);
+    assertThat(response.slots())
+        .filteredOn(BlanketSlotSummaryResponse::filled)
+        .extracting(BlanketSlotSummaryResponse::emotion)
+        .containsExactly(Emotion.ANXIETY, Emotion.LONELY, Emotion.ANXIETY);
+    assertThat(response.slots())
+        .filteredOn(slot -> !slot.filled())
+        .extracting(BlanketSlotSummaryResponse::emotion)
+        .containsOnlyNulls();
     assertThat(response.hasPrevious()).isTrue();
     assertThat(response.hasNext()).isFalse();
   }
@@ -121,7 +150,7 @@ class BlanketServiceTest {
   @DisplayName("담요 3개일 때 1·2·3번의 이전/다음 여부")
   void previousAndNextFlags() {
     given(blanketRepository.findIdsByUserIdOrderByIdAsc(USER_ID)).willReturn(THREE_BLANKETS);
-    given(blanketPieceRepository.findSlotIndexesByBlanketId(anyLong())).willReturn(List.of());
+    given(blanketPieceRepository.findSlotEmotionsByBlanketId(anyLong())).willReturn(List.of());
 
     BlanketViewResponse first = service.getBlanket(USER_ID, 1L);
     BlanketViewResponse second = service.getBlanket(USER_ID, 2L);
@@ -189,7 +218,7 @@ class BlanketServiceTest {
   }
 
   @Test
-  @DisplayName("기본 메시지 칸은 cheerId·emotion·sentAt 이 null 이고 isDefault=true")
+  @DisplayName("기본 메시지 칸은 cheerId·sentAt 이 null 이고 isDefault=true, emotion은 그대로 내려준다")
   void slotOfDefaultMessage() {
     given(blanketRepository.findIdsByUserIdOrderByIdAsc(USER_ID)).willReturn(THREE_BLANKETS);
     given(blanketPieceRepository.findWithCheerByBlanketIdAndSlotIndex(40L, 1))
@@ -198,7 +227,7 @@ class BlanketServiceTest {
     BlanketSlotResponse response = service.getSlot(USER_ID, 3L, 1);
 
     assertThat(response.cheerId()).isNull();
-    assertThat(response.emotion()).isNull();
+    assertThat(response.emotion()).isEqualTo(Emotion.ANXIETY);
     assertThat(response.sentAt()).isNull();
     assertThat(response.isDefault()).isTrue();
   }

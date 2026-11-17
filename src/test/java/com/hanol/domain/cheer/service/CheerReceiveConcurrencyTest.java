@@ -14,13 +14,10 @@ import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.service.MoodService;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.UserRepository;
-import com.hanol.global.exception.BusinessException;
-import com.hanol.global.exception.CommonErrorCode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -156,7 +153,7 @@ class CheerReceiveConcurrencyTest {
   }
 
   @Test
-  @DisplayName("같은 사용자가 같은 기록으로 동시에 받으면 1번만 성공, 나머지는 409, 담요 칸 중복 없음")
+  @DisplayName("같은 사용자가 같은 기록으로 동시에 받으면 한 번만 적립되고, 나머지는 그 패치를 그대로 돌려받는다")
   void sameRecordIsReceivedOnce() throws Exception {
     given(defaultMessageGenerator.generate(any(), anySet())).willReturn(DEFAULT_MESSAGE);
     Long userId = createUserWithRecord("receive-same@example.com", Emotion.TEARFUL);
@@ -164,22 +161,13 @@ class CheerReceiveConcurrencyTest {
     List<Future<CheerReceiveResponse>> futures =
         runConcurrently(i -> () -> cheerReceiveService.receive(userId));
 
-    int successCount = 0;
-    int conflictCount = 0;
+    List<ReceivedCheerResponse> patches = new ArrayList<>();
     for (Future<CheerReceiveResponse> future : futures) {
-      try {
-        future.get();
-        successCount++;
-      } catch (ExecutionException exception) {
-        assertThat(exception.getCause())
-            .isInstanceOf(BusinessException.class)
-            .extracting("errorCode")
-            .isEqualTo(CommonErrorCode.CONFLICT);
-        conflictCount++;
-      }
+      patches.addAll(future.get().patches());
     }
-    assertThat(successCount).isEqualTo(1);
-    assertThat(conflictCount).isEqualTo(THREAD_COUNT - 1);
+    assertThat(patches).hasSize(THREAD_COUNT);
+    assertThat(patches).extracting(ReceivedCheerResponse::slotIndex).containsOnly(1);
+    assertThat(patches).extracting(ReceivedCheerResponse::message).containsOnly(DEFAULT_MESSAGE);
     assertThat(
             jdbcTemplate.queryForList(
                 "select p.slot_index from blanket_pieces p join blankets b on p.blanket_id = b.id"

@@ -1,6 +1,7 @@
 package com.hanol.domain.blanket.repository;
 
 import com.hanol.domain.blanket.entity.BlanketPiece;
+import com.hanol.domain.mood.entity.Emotion;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -17,6 +18,11 @@ public interface BlanketPieceRepository extends JpaRepository<BlanketPiece, Long
       "select distinct p.content from BlanketPiece p"
           + " where p.blanket.user.id = :userId and p.cheer is null")
   List<String> findDefaultContents(@Param("userId") Long userId);
+
+  @Query(
+      "select p.slotIndex as slotIndex, p.emotion as emotion from BlanketPiece p"
+          + " where p.blanket.id = :blanketId")
+  List<SlotEmotion> findSlotEmotionsByBlanketId(@Param("blanketId") Long blanketId);
 
   /** 이미 받은 기본 메시지 문장들. 중복 판단 기준(앞뒤 공백 제거)을 한 곳에서 관리한다. */
   default Set<String> findReceivedDefaultMessages(Long userId) {
@@ -35,4 +41,11 @@ public interface BlanketPieceRepository extends JpaRepository<BlanketPiece, Long
   Optional<BlanketPiece> findFirstByCheerIdAndBlanketUserId(Long cheerId, Long userId);
 
   boolean existsByCheerIdAndBlanketUserId(Long cheerId, Long userId);
+
+  interface SlotEmotion {
+
+    int getSlotIndex();
+
+    Emotion getEmotion();
+  }
 }

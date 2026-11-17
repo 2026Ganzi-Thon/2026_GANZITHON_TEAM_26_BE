@@ -6,13 +6,15 @@ import com.hanol.domain.blanket.dto.response.BlanketViewResponse;
 import com.hanol.domain.blanket.entity.Blanket;
 import com.hanol.domain.blanket.entity.BlanketPiece;
 import com.hanol.domain.blanket.repository.BlanketPieceRepository;
+import com.hanol.domain.blanket.repository.BlanketPieceRepository.SlotEmotion;
 import com.hanol.domain.blanket.repository.BlanketRepository;
+import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.global.exception.BusinessException;
 import com.hanol.global.exception.CommonErrorCode;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,12 +38,14 @@ public class BlanketService {
       if (blanketNumber != null && blanketNumber != 1L) {
         throw new BusinessException(CommonErrorCode.NOT_FOUND);
       }
-      return new BlanketViewResponse(1L, toSlots(Set.of()), false, false);
+      return new BlanketViewResponse(1L, toSlots(Map.of()), false, false);
     }
 
     long number = blanketNumber == null ? blanketIds.size() : blanketNumber;
     Long dbId = resolveBlanketId(blanketIds, number);
-    Set<Integer> filled = new HashSet<>(blanketPieceRepository.findSlotIndexesByBlanketId(dbId));
+    Map<Integer, Emotion> filled =
+        blanketPieceRepository.findSlotEmotionsByBlanketId(dbId).stream()
+            .collect(Collectors.toMap(SlotEmotion::getSlotIndex, SlotEmotion::getEmotion));
     return new BlanketViewResponse(number, toSlots(filled), number > 1, number < blanketIds.size());
   }
 
@@ -68,9 +72,9 @@ public class BlanketService {
     return blanketIds.get((int) blanketNumber - 1);
   }
 
-  private List<BlanketSlotSummaryResponse> toSlots(Set<Integer> filled) {
+  private List<BlanketSlotSummaryResponse> toSlots(Map<Integer, Emotion> filled) {
     return IntStream.rangeClosed(1, Blanket.SLOT_COUNT)
-        .mapToObj(i -> new BlanketSlotSummaryResponse(i, filled.contains(i)))
+        .mapToObj(i -> new BlanketSlotSummaryResponse(i, filled.containsKey(i), filled.get(i)))
         .toList();
   }
 }
