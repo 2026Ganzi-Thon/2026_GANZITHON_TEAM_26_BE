@@ -1,3 +1,5 @@
 package com.hanol.domain.blanket.dto.response;
 
-public record BlanketSlotSummaryResponse(int slotIndex, boolean filled) {}
+import com.hanol.domain.mood.entity.Emotion;
+
+public record BlanketSlotSummaryResponse(int slotIndex, boolean filled, Emotion emotion) {}
