@@ -4,4 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record CheerAvailabilityResponse(
-    boolean sendable, LocalDateTime restrictedUntil, List<EmotionQuestionGroup> questions) {}
+    boolean sendable,
+    LocalDateTime restrictedUntil,
+    LocalDateTime cooldownUntil,
+    List<EmotionQuestionGroup> questions) {}
