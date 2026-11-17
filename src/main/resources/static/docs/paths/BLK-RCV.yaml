@@ -31,6 +31,12 @@ cheerReceive:
           application/json:
             schema:
               $ref: "#/schemas/NoMoodRecordTodayError"
+      "409":
+        description: 이미 해당 기록으로 패치를 받은 상태에서 재요청
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/ConflictError"
       "500":
         description: 대기열 조회·적립 처리 실패
         content:

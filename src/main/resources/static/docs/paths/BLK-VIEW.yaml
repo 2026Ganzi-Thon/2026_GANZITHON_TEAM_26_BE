@@ -80,12 +80,6 @@ blanketSlotView:
           application/json:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
-      "400":
-        description: slotIndex 가 1~30 범위를 벗어남 — 도메인 전용
-        content:
-          application/json:
-            schema:
-              $ref: "#/schemas/InvalidSlotIndexError"
       "403":
         description: 타인의 담요 칸 조회 시도
         content:
@@ -134,7 +128,6 @@ schemas:
         format: date-time
       hasMoodRecordOnDate:
         type: boolean
-
   InvalidSlotIndexError:
     type: object
     properties:
