@@ -55,10 +55,7 @@ public class CheerService {
   public CheerAvailabilityResponse getAvailability(Long userId) {
     LocalDateTime now = LocalDateTime.now(clock);
     Optional<LocalDateTime> restrictedUntil =
-        sendRestrictionRepository
-            .findBySenderHash(cheerSenderHasher.hash(userId))
-            .filter(r -> r.isRestrictedAt(now))
-            .map(SendRestriction::getRestrictedUntil);
+        findActiveRestriction(userId).map(SendRestriction::getRestrictedUntil);
     Optional<LocalDateTime> cooldownUntil = cooldownUntil(userId, now);
     if (restrictedUntil.isPresent() || cooldownUntil.isPresent()) {
       return new CheerAvailabilityResponse(
@@ -130,13 +127,7 @@ public class CheerService {
 
   /** BLK-RPT-002 보내기 제한 중이면 403. */
   private void validateNotRestricted(Long userId) {
-    LocalDateTime now = LocalDateTime.now(clock);
-    boolean restricted =
-        sendRestrictionRepository
-            .findBySenderHash(cheerSenderHasher.hash(userId))
-            .filter(r -> r.isRestrictedAt(now))
-            .isPresent();
-    if (restricted) {
+    if (findActiveRestriction(userId).isPresent()) {
       throw new BusinessException(CheerErrorCode.CHEER_SEND_RESTRICTED);
     }
   }
@@ -154,5 +145,11 @@ public class CheerService {
         .findLastSentAt(userId)
         .map(t -> t.plus(SEND_COOLDOWN))
         .filter(until -> until.isAfter(now));
+  }
+
+  private Optional<SendRestriction> findActiveRestriction(Long userId) {
+    return sendRestrictionRepository
+        .findBySenderHash(cheerSenderHasher.hash(userId))
+        .filter(r -> r.isRestrictedAt(LocalDateTime.now(clock)));
   }
 }
