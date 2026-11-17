@@ -27,12 +27,12 @@ import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
 import com.hanol.domain.mood.entity.MoodRecordCard;
 import com.hanol.domain.mood.entity.ReceiveStatus;
+import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.UserRepository;
 import com.hanol.global.exception.BusinessException;
-import com.hanol.global.exception.CommonErrorCode;
 import com.hanol.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -225,11 +225,11 @@ class CheerReceiveServiceTest {
   }
 
   @Test
-  @DisplayName("오늘 기록이 없으면 400_BAD_REQUEST")
+  @DisplayName("오늘 기록이 없으면 400_NO_MOOD_RECORD_TODAY")
   void rejectWithoutTodayRecord() {
     givenTodayRecords();
 
-    assertErrorCode(() -> service.receive(USER_ID), CommonErrorCode.BAD_REQUEST);
+    assertErrorCode(() -> service.receive(USER_ID), MoodErrorCode.NO_MOOD_RECORD_TODAY);
     verify(transactionTemplate, never()).execute(any());
   }
 

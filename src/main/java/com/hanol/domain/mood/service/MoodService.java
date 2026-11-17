@@ -68,7 +68,7 @@ public class MoodService {
   public MoodRecordCreateResponse createRecord(Long userId, MoodRecordCreateRequest request) {
     List<Emotion> emotions = request.emotions();
     if (new HashSet<>(emotions).size() != emotions.size()) {
-      throw new BusinessException(CommonErrorCode.INVALID_INPUT);
+      throw new BusinessException(MoodErrorCode.DUPLICATE_EMOTION_SELECTED);
     }
 
     String story = request.story();

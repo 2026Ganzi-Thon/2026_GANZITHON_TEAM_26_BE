@@ -5,6 +5,7 @@ import com.hanol.domain.blanket.dto.response.BlanketSlotSummaryResponse;
 import com.hanol.domain.blanket.dto.response.BlanketViewResponse;
 import com.hanol.domain.blanket.entity.Blanket;
 import com.hanol.domain.blanket.entity.BlanketPiece;
+import com.hanol.domain.blanket.exception.BlanketErrorCode;
 import com.hanol.domain.blanket.repository.BlanketPieceRepository;
 import com.hanol.domain.blanket.repository.BlanketPieceRepository.SlotEmotion;
 import com.hanol.domain.blanket.repository.BlanketRepository;
@@ -51,7 +52,7 @@ public class BlanketService {
 
   public BlanketSlotResponse getSlot(Long userId, Long blanketNumber, int slotIndex) {
     if (slotIndex < 1 || slotIndex > Blanket.SLOT_COUNT) {
-      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+      throw new BusinessException(BlanketErrorCode.INVALID_SLOT_INDEX);
     }
     Long dbId =
         resolveBlanketId(blanketRepository.findIdsByUserIdOrderByIdAsc(userId), blanketNumber);

@@ -2,11 +2,11 @@ package com.hanol.domain.interaction.service;
 
 import com.hanol.domain.interaction.dto.response.RestRoomEntryResponse;
 import com.hanol.domain.interaction.dto.response.RestRoomSignalResponse;
+import com.hanol.domain.interaction.exception.InteractionErrorCode;
 import com.hanol.domain.interaction.repository.RestRoomRepository;
 import com.hanol.domain.mood.entity.ReceiveStatus;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.global.exception.BusinessException;
-import com.hanol.global.exception.CommonErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,7 +33,7 @@ public class RestRoomService {
         moodRecordCardRepository.existsByMoodRecordUserIdAndMoodRecordRecordDateAndReceiveStatusNot(
             userId, today, ReceiveStatus.NOT_RECEIVED);
     if (!receivedToday) {
-      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+      throw new BusinessException(InteractionErrorCode.CHEER_NOT_RECEIVED_YET);
     }
 
     Instant now = Instant.now(clock);
@@ -50,7 +50,7 @@ public class RestRoomService {
   public RestRoomSignalResponse signal(Long userId) {
     restRoomRepository
         .findEnteredAt(userId)
-        .orElseThrow(() -> new BusinessException(CommonErrorCode.BAD_REQUEST));
+        .orElseThrow(() -> new BusinessException(InteractionErrorCode.REST_ROOM_NOT_ENTERED));
 
     Instant now = Instant.now(clock);
     restRoomRepository.refreshEnteredAtTtl(userId);

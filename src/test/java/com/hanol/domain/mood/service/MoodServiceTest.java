@@ -171,14 +171,14 @@ class MoodServiceTest {
   }
 
   @Test
-  @DisplayName("같은 감정을 두 번 고르면 400_INVALID_INPUT")
+  @DisplayName("같은 감정을 두 번 고르면 400_DUPLICATE_EMOTION_SELECTED")
   void rejectDuplicatedEmotion() {
     assertErrorCode(
         () ->
             moodService.createRecord(
                 USER_ID,
                 new MoodRecordCreateRequest(List.of(Emotion.ANXIETY, Emotion.ANXIETY), null)),
-        CommonErrorCode.INVALID_INPUT);
+        MoodErrorCode.DUPLICATE_EMOTION_SELECTED);
     verify(transactionTemplate, never()).execute(any());
   }
 
