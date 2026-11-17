@@ -13,6 +13,7 @@ import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
 import com.hanol.domain.mood.entity.MoodRecordCard;
 import com.hanol.domain.mood.entity.ReceiveStatus;
+import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.domain.user.entity.User;
@@ -106,7 +107,7 @@ public class CheerReceiveService {
             .sorted(Comparator.comparingInt(MoodRecord::getDailySeq))
             .toList();
     if (records.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+      throw new BusinessException(MoodErrorCode.NO_MOOD_RECORD_TODAY);
     }
 
     List<Target> targets = new ArrayList<>();
@@ -182,7 +183,7 @@ public class CheerReceiveService {
         moodRecordCardRepository.findAllById(targets.stream().map(Target::cardId).toList()).stream()
             .collect(Collectors.toMap(MoodRecordCard::getId, Function.identity()));
     if (reloaded.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+      throw new BusinessException(MoodErrorCode.NO_MOOD_RECORD_TODAY);
     }
     List<Target> receivable =
         targets.stream()

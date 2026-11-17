@@ -9,6 +9,7 @@ import com.hanol.domain.blanket.dto.response.BlanketSlotResponse;
 import com.hanol.domain.blanket.dto.response.BlanketSlotSummaryResponse;
 import com.hanol.domain.blanket.dto.response.BlanketViewResponse;
 import com.hanol.domain.blanket.entity.BlanketPiece;
+import com.hanol.domain.blanket.exception.BlanketErrorCode;
 import com.hanol.domain.blanket.repository.BlanketPieceRepository;
 import com.hanol.domain.blanket.repository.BlanketPieceRepository.SlotEmotion;
 import com.hanol.domain.blanket.repository.BlanketRepository;
@@ -17,6 +18,7 @@ import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.global.exception.BusinessException;
 import com.hanol.global.exception.CommonErrorCode;
+import com.hanol.global.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +50,7 @@ class BlanketServiceTest {
     service = new BlanketService(blanketRepository, blanketPieceRepository, moodRecordRepository);
   }
 
-  private void assertErrorCode(Runnable call, CommonErrorCode errorCode) {
+  private void assertErrorCode(Runnable call, ErrorCode errorCode) {
     assertThatThrownBy(call::run)
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
@@ -174,10 +176,10 @@ class BlanketServiceTest {
   }
 
   @Test
-  @DisplayName("칸 번호가 1~30 밖이면 BAD_REQUEST")
+  @DisplayName("칸 번호가 1~30 밖이면 400_INVALID_SLOT_INDEX")
   void badRequestOutOfRangeSlot() {
-    assertErrorCode(() -> service.getSlot(USER_ID, 1L, 0), CommonErrorCode.BAD_REQUEST);
-    assertErrorCode(() -> service.getSlot(USER_ID, 1L, 31), CommonErrorCode.BAD_REQUEST);
+    assertErrorCode(() -> service.getSlot(USER_ID, 1L, 0), BlanketErrorCode.INVALID_SLOT_INDEX);
+    assertErrorCode(() -> service.getSlot(USER_ID, 1L, 31), BlanketErrorCode.INVALID_SLOT_INDEX);
   }
 
   @Test

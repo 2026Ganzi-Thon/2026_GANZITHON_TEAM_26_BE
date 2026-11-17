@@ -17,7 +17,8 @@ public enum CheerErrorCode implements ErrorCode {
   CHEER_OFF_TOPIC(HttpStatus.BAD_REQUEST, "400_CHEER_OFF_TOPIC", "패치와 맞지 않는 내용이에요"),
   CHEER_SEND_RESTRICTED(
       HttpStatus.FORBIDDEN, "403_CHEER_SEND_RESTRICTED", "신고가 누적되어 지금은 패치를 보낼 수 없어요"),
-  CHEER_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "429_CHEER_COOLDOWN", "패치는 5분에 한 번 보낼 수 있어요");
+  CHEER_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "429_CHEER_COOLDOWN", "패치는 5분에 한 번 보낼 수 있어요"),
+  CHEER_ALREADY_REPORTED(HttpStatus.CONFLICT, "409_CHEER_ALREADY_REPORTED", "이미 신고 처리된 메시지예요.");
 
   private final HttpStatus status;
   private final String code;

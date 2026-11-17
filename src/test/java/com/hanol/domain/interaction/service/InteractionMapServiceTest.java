@@ -11,13 +11,13 @@ import com.hanol.domain.interaction.repository.WarmthMapLogRepository;
 import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
 import com.hanol.domain.mood.entity.MoodRecordCard;
+import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.domain.user.entity.DailyStat;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.DailyStatRepository;
 import com.hanol.global.exception.BusinessException;
-import com.hanol.global.exception.CommonErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -103,7 +103,7 @@ class InteractionMapServiceTest {
   }
 
   @Test
-  @DisplayName("최근 24시간 이내 기록이 없으면 400_BAD_REQUEST")
+  @DisplayName("최근 24시간 이내 기록이 없으면 400_NO_RECENT_MOOD_RECORD")
   void noRecentRecord() {
     given(
             moodRecordRepository.findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(
@@ -113,7 +113,7 @@ class InteractionMapServiceTest {
     assertThatThrownBy(() -> interactionMapService.getMap(USER_ID))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
-        .isEqualTo(CommonErrorCode.BAD_REQUEST);
+        .isEqualTo(MoodErrorCode.NO_RECENT_MOOD_RECORD);
   }
 
   @Test

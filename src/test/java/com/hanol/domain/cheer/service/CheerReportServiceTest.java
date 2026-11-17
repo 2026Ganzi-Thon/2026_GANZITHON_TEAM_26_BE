@@ -19,6 +19,7 @@ import com.hanol.domain.cheer.entity.Cheer;
 import com.hanol.domain.cheer.entity.CheerReport;
 import com.hanol.domain.cheer.entity.CheerStatus;
 import com.hanol.domain.cheer.entity.SendRestriction;
+import com.hanol.domain.cheer.exception.CheerErrorCode;
 import com.hanol.domain.cheer.repository.CheerReportRepository;
 import com.hanol.domain.cheer.repository.CheerRepository;
 import com.hanol.domain.cheer.repository.SendRestrictionRepository;
@@ -27,6 +28,7 @@ import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.UserRepository;
 import com.hanol.global.exception.BusinessException;
 import com.hanol.global.exception.CommonErrorCode;
+import com.hanol.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -124,7 +126,7 @@ class CheerReportServiceTest {
     return cheer;
   }
 
-  private void assertErrorCode(CommonErrorCode errorCode) {
+  private void assertErrorCode(ErrorCode errorCode) {
     assertThatThrownBy(() -> service.report(USER_ID, CHEER_ID))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
@@ -145,7 +147,7 @@ class CheerReportServiceTest {
   void rejectHiddenCheer() {
     ReflectionTestUtils.setField(reported, "status", CheerStatus.HIDDEN);
 
-    assertErrorCode(CommonErrorCode.CONFLICT);
+    assertErrorCode(CheerErrorCode.CHEER_ALREADY_REPORTED);
     verify(transactionManager, never()).getTransaction(any());
   }
 
@@ -167,7 +169,7 @@ class CheerReportServiceTest {
         .willReturn(Optional.of(reported))
         .willReturn(Optional.of(hidden));
 
-    assertErrorCode(CommonErrorCode.CONFLICT);
+    assertErrorCode(CheerErrorCode.CHEER_ALREADY_REPORTED);
     verify(blanketPieceRepository, never()).findFirstByCheerIdAndBlanketUserId(CHEER_ID, USER_ID);
     verify(blanketPieceRepository, times(1)).existsByCheerIdAndBlanketUserId(CHEER_ID, USER_ID);
     verify(cheerRepository, never()).changeStatusIf(anyLong(), any(), any(), any());
@@ -179,7 +181,7 @@ class CheerReportServiceTest {
     given(cheerRepository.changeStatusIf(CHEER_ID, CheerStatus.DELIVERED, CheerStatus.HIDDEN, NOW))
         .willReturn(0);
 
-    assertErrorCode(CommonErrorCode.CONFLICT);
+    assertErrorCode(CheerErrorCode.CHEER_ALREADY_REPORTED);
     verify(cheerReportRepository, never()).save(any());
     assertThat(piece.getCheer()).isSameAs(reported);
     assertThat(piece.getContent()).isEqualTo("신고된 패치");

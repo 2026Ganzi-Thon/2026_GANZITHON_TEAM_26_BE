@@ -7,12 +7,12 @@ import com.hanol.domain.interaction.repository.WarmthMapLogRepository;
 import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
 import com.hanol.domain.mood.entity.MoodRecordCard;
+import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.domain.user.entity.DailyStat;
 import com.hanol.domain.user.repository.DailyStatRepository;
 import com.hanol.global.exception.BusinessException;
-import com.hanol.global.exception.CommonErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,7 +42,7 @@ public class InteractionMapService {
         moodRecordRepository.findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(
             userId, activeFrom, now);
     if (recentRecords.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+      throw new BusinessException(MoodErrorCode.NO_RECENT_MOOD_RECORD);
     }
 
     List<Long> recentRecordIds = recentRecords.stream().map(MoodRecord::getId).toList();

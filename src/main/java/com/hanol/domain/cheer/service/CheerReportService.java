@@ -8,6 +8,7 @@ import com.hanol.domain.cheer.entity.Cheer;
 import com.hanol.domain.cheer.entity.CheerReport;
 import com.hanol.domain.cheer.entity.CheerStatus;
 import com.hanol.domain.cheer.entity.SendRestriction;
+import com.hanol.domain.cheer.exception.CheerErrorCode;
 import com.hanol.domain.cheer.repository.CheerReportRepository;
 import com.hanol.domain.cheer.repository.CheerRepository;
 import com.hanol.domain.cheer.repository.SendRestrictionRepository;
@@ -102,7 +103,7 @@ public class CheerReportService {
 
     if (cheerRepository.changeStatusIf(cheerId, CheerStatus.DELIVERED, CheerStatus.HIDDEN, now)
         != 1) {
-      throw new BusinessException(CommonErrorCode.CONFLICT);
+      throw new BusinessException(CheerErrorCode.CHEER_ALREADY_REPORTED);
     }
     cheerReportRepository.save(
         CheerReport.builder()
@@ -151,7 +152,7 @@ public class CheerReportService {
 
   private static void validateNotHidden(Cheer cheer) {
     if (cheer.getStatus() == CheerStatus.HIDDEN) {
-      throw new BusinessException(CommonErrorCode.CONFLICT);
+      throw new BusinessException(CheerErrorCode.CHEER_ALREADY_REPORTED);
     }
   }
 }

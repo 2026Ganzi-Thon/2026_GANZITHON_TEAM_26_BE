@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.hanol.domain.cheer.dto.response.CheerReportResponse;
 import com.hanol.domain.cheer.entity.Cheer;
+import com.hanol.domain.cheer.exception.CheerErrorCode;
 import com.hanol.domain.cheer.repository.CheerRepository;
 import com.hanol.domain.mood.dto.request.MoodRecordCreateRequest;
 import com.hanol.domain.mood.entity.Emotion;
@@ -14,7 +15,6 @@ import com.hanol.domain.mood.service.MoodService;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.UserRepository;
 import com.hanol.global.exception.BusinessException;
-import com.hanol.global.exception.CommonErrorCode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -137,7 +137,7 @@ class CheerReportConcurrencyTest {
         assertThat(exception.getCause())
             .isInstanceOf(BusinessException.class)
             .extracting("errorCode")
-            .isEqualTo(CommonErrorCode.CONFLICT);
+            .isEqualTo(CheerErrorCode.CHEER_ALREADY_REPORTED);
         conflictCount++;
       }
     }
