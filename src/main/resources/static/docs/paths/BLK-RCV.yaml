@@ -33,10 +33,10 @@ cheerReceive:
               $ref: "#/schemas/NoMoodRecordTodayError"
       "409":
         description: 이미 해당 기록으로 패치를 받은 상태에서 재요청
-          content:
-            application/json:
-              schema:
-                $ref: '../components/common.yaml#/ConflictError'
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/ConflictError"
       "500":
         description: 대기열 조회·적립 처리 실패
         content:
@@ -45,13 +45,13 @@ cheerReceive:
               $ref: "../components/common.yaml#/InternalServerError"
 
 schemas:
-    CheerReceiveData:
-        type: object
-        properties:
-            patches:
-                type: array
-                items:
-                    $ref: '#/schemas/ReceivedCheer'
+  CheerReceiveData:
+    type: object
+    properties:
+      patches:
+        type: array
+        items:
+          $ref: "#/schemas/ReceivedCheer"
 
   ReceivedCheer:
     type: object
@@ -67,15 +67,15 @@ schemas:
       message:
         type: string
       isDefault:
-              type: boolean
-              description: 대기열이 비어 기본 메시지로 대체되었거나(1~3번째) 4번째 이상 기록이라 기본 메시지만 받은 경우 true
-          slotIndex:
-              type: integer
-              nullable: true
-              description: 담요에 쌓인 칸 번호. 4번째 이상 기록의 기본 위로는 담요에 쌓이지 않아 null
-          blanketCompleted:
-              type: boolean
-              description: 이 칸으로 담요(30칸)가 다 찼는지
+        type: boolean
+        description: 대기열이 비어 기본 메시지로 대체되었거나(1~3번째) 4번째 이상 기록이라 기본 메시지만 받은 경우 true
+      slotIndex:
+        type: integer
+        nullable: true
+        description: 담요에 쌓인 칸 번호. 4번째 이상 기록의 기본 위로는 담요에 쌓이지 않아 null
+      blanketCompleted:
+        type: boolean
+        description: 이 칸으로 담요(30칸)가 다 찼는지
 
   NoMoodRecordTodayError:
     type: object

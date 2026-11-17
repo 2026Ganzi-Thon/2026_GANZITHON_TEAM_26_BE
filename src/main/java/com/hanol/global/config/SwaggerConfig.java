@@ -5,6 +5,8 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.tags.Tag;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -22,6 +24,13 @@ public class SwaggerConfig {
     return new OpenAPI()
         .info(
             new Info().title("PATCH API").description("2026 간지톤 26팀 'PATCH' 백엔드 API").version("v1"))
+        .tags(
+            List.of(
+                new Tag().name("USR").description("유저, 인증"),
+                new Tag().name("CRD").description("마음 기록, 감정 도안"),
+                new Tag().name("BLK").description("패치 선물하기/받기, 담요"),
+                new Tag().name("ITR").description("온기 지도, 함께 쉬는 방"),
+                new Tag().name("ALRT").description("도움 요청")))
         .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
         .components(
             new Components()

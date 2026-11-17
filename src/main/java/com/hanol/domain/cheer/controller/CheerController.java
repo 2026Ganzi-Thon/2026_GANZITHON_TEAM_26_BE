@@ -9,6 +9,7 @@ import com.hanol.domain.cheer.service.CheerReceiveService;
 import com.hanol.domain.cheer.service.CheerReportService;
 import com.hanol.domain.cheer.service.CheerService;
 import com.hanol.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/cheers")
+@Tag(name = "BLK")
 @RequiredArgsConstructor
 public class CheerController {
 
