@@ -2,6 +2,7 @@ package com.hanol.infra.ai;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -40,20 +41,33 @@ public class AiChatClient {
   /** 응답 content(schema 를 따르는 JSON 문자열)를 돌려준다. 실패하면 AiClientException. */
   public String complete(
       String systemPrompt, String userContent, String schemaName, Map<String, Object> schema) {
-    Map<String, Object> body =
+    return complete(systemPrompt, userContent, schemaName, schema, null);
+  }
+
+  /** 요청에 temperature 를 함께 보낸다. null 이면 넣지 않는다(API 기본값). */
+  public String complete(
+      String systemPrompt,
+      String userContent,
+      String schemaName,
+      Map<String, Object> schema,
+      Double temperature) {
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("model", properties.model());
+    body.put(
+        "messages",
+        List.of(
+            Map.of("role", "system", "content", systemPrompt),
+            Map.of("role", "user", "content", userContent)));
+    body.put(
+        "response_format",
         Map.of(
-            "model",
-            properties.model(),
-            "messages",
-            List.of(
-                Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userContent)),
-            "response_format",
-            Map.of(
-                "type",
-                "json_schema",
-                "json_schema",
-                Map.of("name", schemaName, "strict", true, "schema", schema)));
+            "type",
+            "json_schema",
+            "json_schema",
+            Map.of("name", schemaName, "strict", true, "schema", schema)));
+    if (temperature != null) {
+      body.put("temperature", temperature);
+    }
 
     String responseBody;
     try {
