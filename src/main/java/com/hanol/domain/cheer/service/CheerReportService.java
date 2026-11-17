@@ -12,7 +12,6 @@ import com.hanol.domain.cheer.repository.CheerReportRepository;
 import com.hanol.domain.cheer.repository.CheerRepository;
 import com.hanol.domain.cheer.repository.SendRestrictionRepository;
 import com.hanol.domain.mood.entity.Emotion;
-import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.user.repository.UserRepository;
 import com.hanol.global.exception.BusinessException;
 import com.hanol.global.exception.CommonErrorCode;
@@ -44,7 +43,6 @@ public class CheerReportService {
   private final CheerReportRepository cheerReportRepository;
   private final SendRestrictionRepository sendRestrictionRepository;
   private final BlanketPieceRepository blanketPieceRepository;
-  private final MoodRecordCardRepository moodRecordCardRepository;
   private final UserRepository userRepository;
   private final CheerSenderHasher cheerSenderHasher;
   private final DefaultCheerMessageGenerator defaultMessageGenerator;
@@ -61,7 +59,6 @@ public class CheerReportService {
       CheerReportRepository cheerReportRepository,
       SendRestrictionRepository sendRestrictionRepository,
       BlanketPieceRepository blanketPieceRepository,
-      MoodRecordCardRepository moodRecordCardRepository,
       UserRepository userRepository,
       CheerSenderHasher cheerSenderHasher,
       DefaultCheerMessageGenerator defaultMessageGenerator,
@@ -72,7 +69,6 @@ public class CheerReportService {
     this.cheerReportRepository = cheerReportRepository;
     this.sendRestrictionRepository = sendRestrictionRepository;
     this.blanketPieceRepository = blanketPieceRepository;
-    this.moodRecordCardRepository = moodRecordCardRepository;
     this.userRepository = userRepository;
     this.cheerSenderHasher = cheerSenderHasher;
     this.defaultMessageGenerator = defaultMessageGenerator;
@@ -154,9 +150,6 @@ public class CheerReportService {
     }
 
     piece.replace(replacement, message);
-    moodRecordCardRepository
-        .findFirstByBlanketPieceId(piece.getId())
-        .ifPresent(card -> card.replaceReceivedMessage(message));
 
     return replacement != null
         ? ReceivedCheerResponse.ofCheer(replacement.getId(), emotion, message)

@@ -24,10 +24,6 @@ import com.hanol.domain.cheer.repository.CheerReportRepository;
 import com.hanol.domain.cheer.repository.CheerRepository;
 import com.hanol.domain.cheer.repository.SendRestrictionRepository;
 import com.hanol.domain.mood.entity.Emotion;
-import com.hanol.domain.mood.entity.MoodRecord;
-import com.hanol.domain.mood.entity.MoodRecordCard;
-import com.hanol.domain.mood.entity.ReceiveStatus;
-import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.UserRepository;
 import com.hanol.global.exception.BusinessException;
@@ -70,7 +66,6 @@ class CheerReportServiceTest {
   @Mock private CheerReportRepository cheerReportRepository;
   @Mock private SendRestrictionRepository sendRestrictionRepository;
   @Mock private BlanketPieceRepository blanketPieceRepository;
-  @Mock private MoodRecordCardRepository moodRecordCardRepository;
   @Mock private UserRepository userRepository;
   @Mock private CheerSenderHasher cheerSenderHasher;
   @Mock private DefaultCheerMessageGenerator defaultMessageGenerator;
@@ -80,7 +75,6 @@ class CheerReportServiceTest {
   private User user;
   private Cheer reported;
   private BlanketPiece piece;
-  private MoodRecordCard card;
   private SendRestriction restriction;
 
   @BeforeEach
@@ -91,7 +85,6 @@ class CheerReportServiceTest {
             cheerReportRepository,
             sendRestrictionRepository,
             blanketPieceRepository,
-            moodRecordCardRepository,
             userRepository,
             cheerSenderHasher,
             defaultMessageGenerator,
@@ -111,9 +104,6 @@ class CheerReportServiceTest {
             .receivedAt(RECEIVED_AT)
             .build();
     ReflectionTestUtils.setField(piece, "id", PIECE_ID);
-    MoodRecord record = MoodRecord.builder().user(user).recordedAt(RECEIVED_AT).dailySeq(1).build();
-    card = MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.LONELY).build();
-    card.receive(reported.getContent(), piece);
 
     restriction = SendRestriction.builder().senderHash(REPORTED_HASH).build();
     given(sendRestrictionRepository.findBySenderHashForUpdate(REPORTED_HASH))
@@ -125,8 +115,6 @@ class CheerReportServiceTest {
     given(cheerRepository.findById(CHEER_ID)).willReturn(Optional.of(reported));
     given(blanketPieceRepository.findFirstByCheerIdAndBlanketUserId(CHEER_ID, USER_ID))
         .willReturn(Optional.of(piece));
-    given(moodRecordCardRepository.findFirstByBlanketPieceId(PIECE_ID))
-        .willReturn(Optional.of(card));
     given(cheerRepository.changeStatusIf(CHEER_ID, CheerStatus.DELIVERED, CheerStatus.HIDDEN, NOW))
         .willReturn(1);
   }
@@ -216,11 +204,10 @@ class CheerReportServiceTest {
         .changeStatusIf(60L, CheerStatus.WAITING, CheerStatus.DELIVERED, NOW);
     assertThat(piece.getCheer()).isSameAs(reported);
     assertThat(piece.getContent()).isEqualTo("신고된 패치");
-    assertThat(card.getReceivedMessage()).isEqualTo("신고된 패치");
   }
 
   @Test
-  @DisplayName("대기열 패치로 교체: 칸·카드 문장이 바뀌고 받은 시각·칸 위치는 그대로, 신고 기록에 발신자 해시 저장")
+  @DisplayName("대기열 패치로 교체: 칸 문장이 바뀌고 받은 시각·칸 위치는 그대로, 신고 기록에 발신자 해시 저장")
   void replaceWithQueuedCheer() {
     Cheer waiting = givenWaitingCheer(60L, "새 패치");
 
@@ -232,8 +219,6 @@ class CheerReportServiceTest {
     assertThat(piece.getContent()).isEqualTo("새 패치");
     assertThat(piece.getReceivedAt()).isEqualTo(RECEIVED_AT);
     assertThat(piece.getSlotIndex()).isEqualTo(SLOT_INDEX);
-    assertThat(card.getReceivedMessage()).isEqualTo("새 패치");
-    assertThat(card.getReceiveStatus()).isEqualTo(ReceiveStatus.RECEIVED);
     ArgumentCaptor<CheerReport> captor = ArgumentCaptor.forClass(CheerReport.class);
     verify(cheerReportRepository).save(captor.capture());
     assertThat(captor.getValue().getCheer()).isSameAs(reported);
@@ -256,7 +241,6 @@ class CheerReportServiceTest {
         .isEqualTo(new ReceivedCheerResponse(null, Emotion.LONELY, GENERATED, true));
     assertThat(piece.getCheer()).isNull();
     assertThat(piece.getContent()).isEqualTo(GENERATED);
-    assertThat(card.getReceivedMessage()).isEqualTo(GENERATED);
     verify(cheerRepository, never()).findQueueCandidates(any(), any(), any(), any());
   }
 
@@ -272,20 +256,6 @@ class CheerReportServiceTest {
             Emotion.LONELY, CheerStatus.WAITING, MY_HASH);
     verify(cheerRepository)
         .findQueueCandidates(eq(Emotion.LONELY), eq(CheerStatus.WAITING), eq(MY_HASH), any());
-  }
-
-  @Test
-  @DisplayName("기록을 지워 카드가 없어도 담요 칸만 교체하고 성공")
-  void replacePieceWithoutCard() {
-    givenWaitingCheer(60L, "새 패치");
-    given(moodRecordCardRepository.findFirstByBlanketPieceId(PIECE_ID))
-        .willReturn(Optional.empty());
-
-    CheerReportResponse response = service.report(USER_ID, CHEER_ID);
-
-    assertThat(response.replaced().message()).isEqualTo("새 패치");
-    assertThat(piece.getContent()).isEqualTo("새 패치");
-    verify(cheerReportRepository).save(any());
   }
 
   @Test

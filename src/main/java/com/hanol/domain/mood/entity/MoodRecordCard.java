@@ -72,11 +72,6 @@ public class MoodRecordCard extends BaseTimeEntity {
     this.blanketPiece = piece;
   }
 
-  /** 연결된 담요 칸의 패치가 신고로 교체됐을 때. 받은 상태는 그대로 둔다. */
-  public void replaceReceivedMessage(String message) {
-    this.receivedMessage = message;
-  }
-
   /** 4번째 이상 기록의 기본 위로. 문장은 저장하지 않는다. */
   public void receiveDefaultComfort() {
     this.receiveStatus = ReceiveStatus.DEFAULT_COMFORT;
