@@ -14,6 +14,9 @@ import com.hanol.domain.blanket.entity.BlanketPiece;
 import com.hanol.domain.interaction.entity.WarmthMapLog;
 import com.hanol.domain.interaction.repository.WarmthMapLogRepository;
 import com.hanol.domain.mood.dto.request.MoodRecordCreateRequest;
+import com.hanol.domain.mood.dto.response.MoodCalendarResponse;
+import com.hanol.domain.mood.dto.response.MoodCalendarSentPatchResponse;
+import com.hanol.domain.mood.dto.response.MoodDayListResponse;
 import com.hanol.domain.mood.dto.response.MoodDetailPatchResponse;
 import com.hanol.domain.mood.dto.response.MoodDetailResponse;
 import com.hanol.domain.mood.entity.Emotion;
@@ -24,6 +27,7 @@ import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
 import com.hanol.domain.mood.repository.StoryRepository;
+import com.hanol.domain.user.entity.DailyStat;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.DailyStatRepository;
 import com.hanol.domain.user.repository.UserRepository;
@@ -34,6 +38,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -276,12 +281,66 @@ class MoodServiceTest {
   }
 
   @Test
-  @DisplayName("그날 기록이 없으면 404_NOT_FOUND")
+  @DisplayName("그날 기록도 보낸 패치도 없으면 404_NOT_FOUND")
   void getDayRecordsWhenEmpty() {
     LocalDate date = NOW.toLocalDate();
     given(moodRecordRepository.findByUserIdAndRecordDateOrderByRecordedAtAsc(USER_ID, date))
         .willReturn(List.of());
 
     assertErrorCode(() -> moodService.getDayRecords(USER_ID, date), CommonErrorCode.NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("그날 기록이 없고 보낸 패치가 2개면 개수와 빈 목록을 주고 카드·사연은 조회하지 않는다")
+  void getDayRecordsWithOnlySentPatches() {
+    LocalDate date = NOW.toLocalDate();
+    given(dailyStatRepository.findByUserIdAndStatDate(USER_ID, date))
+        .willReturn(Optional.of(sentStat(date, 2)));
+    given(moodRecordRepository.findByUserIdAndRecordDateOrderByRecordedAtAsc(USER_ID, date))
+        .willReturn(List.of());
+
+    MoodDayListResponse response = moodService.getDayRecords(USER_ID, date);
+
+    assertThat(response.sentPatchCount()).isEqualTo(2);
+    assertThat(response.records()).isEmpty();
+    verify(moodRecordCardRepository, never()).findByMoodRecordIdInOrderByCardOrderAsc(any());
+    verify(storyRepository, never()).findMoodRecordIds(any());
+  }
+
+  @Test
+  @DisplayName("캘린더는 기록 날짜와 함께 그 달 1일~말일에 보낸 날짜·개수를 날짜순으로 내려준다")
+  void getCalendarWithSentPatchCounts() {
+    YearMonth yearMonth = YearMonth.of(2026, 11);
+    LocalDate from = LocalDate.of(2026, 11, 1);
+    LocalDate to = LocalDate.of(2026, 11, 30);
+    given(moodRecordRepository.findRecordDates(USER_ID, from, to))
+        .willReturn(List.of(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 3)));
+    given(
+            dailyStatRepository
+                .findByUserIdAndStatDateBetweenAndSentCountGreaterThanOrderByStatDateAsc(
+                    USER_ID, from, to, 0))
+        .willReturn(
+            List.of(
+                sentStat(LocalDate.of(2026, 11, 2), 1), sentStat(LocalDate.of(2026, 11, 3), 3)));
+
+    MoodCalendarResponse response = moodService.getCalendar(USER_ID, yearMonth);
+
+    assertThat(response.recordedDates())
+        .containsExactly(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 3));
+    assertThat(response.sentPatchCounts())
+        .containsExactly(
+            new MoodCalendarSentPatchResponse(LocalDate.of(2026, 11, 2), 1),
+            new MoodCalendarSentPatchResponse(LocalDate.of(2026, 11, 3), 3));
+    verify(dailyStatRepository)
+        .findByUserIdAndStatDateBetweenAndSentCountGreaterThanOrderByStatDateAsc(
+            USER_ID, from, to, 0);
+  }
+
+  private static DailyStat sentStat(LocalDate date, int sentCount) {
+    DailyStat stat = DailyStat.builder().user(user(USER_ID)).statDate(date).build();
+    for (int i = 0; i < sentCount; i++) {
+      stat.increaseSentCount(NOW);
+    }
+    return stat;
   }
 }
