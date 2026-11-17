@@ -51,5 +51,6 @@
 | Status Code | Status Name | Description |
 | --- | --- | --- |
 | 401 | UNAUTHORIZED | 로그인하지 않은 상태로 접근 |
+| 400 | INVALID_SLOT_INDEX | `slotIndex` 가 1~30 범위를 벗어남 |
 | 404 | NOT_FOUND | 빈 칸 조회 |
 | 403 | FORBIDDEN | 타인의 담요 칸 조회 시도 |

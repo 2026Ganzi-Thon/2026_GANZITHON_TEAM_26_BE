@@ -3,7 +3,7 @@ moodCalendar:
     tags: [CRD]
     operationId: CRD-VIEW-001
     summary: 기록 캘린더 조회
-    description: 날짜 클릭 시 "그날 남긴 것 있음/없음"은 이 응답의 날짜 목록으로 클라이언트가 판단한다(별도 호출 없음).
+    description: 날짜 클릭 시 '그날 남긴 것 있음/없음'은 이 응답의 recordedDates 와 sentPatchCounts 로 클라이언트가 판단한다(별도 호출 없음).
     parameters:
       - name: yearMonth
         in: query
@@ -14,7 +14,7 @@ moodCalendar:
           example: "2026-11"
     responses:
       "200":
-        description: 해당 월의 기록 있는 날짜 목록
+        description: 해당 월의 기록 있는 날짜와 패치를 보낸 날짜 목록
         content:
           application/json:
             schema:
@@ -47,6 +47,17 @@ schemas:
           type: string
           format: date
         example: ["2026-11-01", "2026-11-03"]
+      sentPatchCounts:
+        type: array
+        description: 패치를 보낸 날짜와 그날 보낸 개수(1개 이상인 날만, 날짜순). 기록 없이 이 목록에만 있는 날은 빈 동그라미로 표시
+        items:
+          type: object
+          properties:
+            date:
+              type: string
+              format: date
+            count:
+              type: integer
 
   MoodDayListData:
     type: object
@@ -57,6 +68,7 @@ schemas:
         description: 그날 보낸 패치 개수. 보낸 적 없으면 null(문구 생략)
       records:
         type: array
+        description: 기록이 없고 패치만 보낸 날이면 빈 배열
         items:
           $ref: "#/schemas/MoodDayRecordSummary"
 

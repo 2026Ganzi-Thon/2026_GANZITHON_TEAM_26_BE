@@ -24,7 +24,7 @@
 | Status Code | Status Name | Description |
 | --- | --- | --- |
 | 401 | UNAUTHORIZED | 로그인하지 않은 상태로 접근 |
-| 401 | UNAUTHORIZED | 비밀번호 불일치 |
+| 401 | WITHDRAWAL_PASSWORD_MISMATCH | 비밀번호 불일치 |
 | 500 | INTERNAL_SERVER_ERROR | 계정 삭제 처리 중 오류 |
 
 ## USR-USER-002 고객센터

@@ -86,6 +86,6 @@
 | 400 | INVALID_INPUT | 감정 미선택 (Bean Validation) |
 | 400 | INVALID_INPUT | 감정 3개 이상 선택 시도 (Bean Validation) |
 | 400 | INVALID_INPUT | 존재하지 않는 감정 값 선택 (JSON 역직렬화 실패) |
-| 400 | INVALID_INPUT | 같은 감정을 중복 선택 |
+| 400 | DUPLICATE_EMOTION_SELECTED | 같은 감정을 중복 선택 |
 | 400 | CRISIS_DETECTED | 위기 표현 감지 — 아무것도 저장하지 않고 응답(수정 후 재전송 전제) |
 | 500 | INTERNAL_SERVER_ERROR | 기록 저장 중 오류 |
