@@ -4,10 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.hanol.global.exception.BusinessException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Date;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -59,6 +64,26 @@ class JwtProviderTest {
   @DisplayName("형식이 잘못된 토큰은 INVALID_TOKEN")
   void rejectMalformedToken() {
     assertThatThrownBy(() -> jwtProvider.parse("not-a-jwt", TokenType.ACCESS))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(AuthErrorCode.INVALID_TOKEN);
+  }
+
+  @Test
+  @DisplayName("서명은 유효하지만 subject 가 숫자가 아니면 INVALID_TOKEN")
+  void rejectNonNumericSubject() {
+    SecretKey secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
+    String token =
+        Jwts.builder()
+            .subject("not-a-number")
+            .claim("type", TokenType.ACCESS.name())
+            .claim("sid", SESSION_ID)
+            .issuedAt(Date.from(NOW))
+            .expiration(Date.from(NOW.plus(Duration.ofHours(1))))
+            .signWith(secretKey)
+            .compact();
+
+    assertThatThrownBy(() -> jwtProvider.parse(token, TokenType.ACCESS))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(AuthErrorCode.INVALID_TOKEN);
