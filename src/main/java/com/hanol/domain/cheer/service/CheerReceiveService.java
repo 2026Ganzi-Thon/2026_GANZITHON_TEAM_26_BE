@@ -110,12 +110,10 @@ public class CheerReceiveService {
       throw new BusinessException(MoodErrorCode.NO_MOOD_RECORD_TODAY);
     }
 
-    List<MoodRecordCard> allCards = new ArrayList<>();
     List<Target> targets = new ArrayList<>();
     for (MoodRecord record : records) {
       for (MoodRecordCard card :
           moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(record.getId())) {
-        allCards.add(card);
         if (card.getReceiveStatus() == ReceiveStatus.NOT_RECEIVED) {
           targets.add(
               new Target(card.getId(), record.getId(), record.getDailySeq(), card.getEmotion()));
@@ -123,8 +121,10 @@ public class CheerReceiveService {
       }
     }
     // 오늘 받을 게 하나도 안 남았으면(새로고침 등) 409 대신 오늘 받은 패치를 그대로 다시 내려준다.
+    // 트랜잭션 밖에서 읽은 카드는 detached 상태라 blanketPiece 지연 로딩이 깨지므로, 트랜잭션 안에서 다시 읽는다.
     if (targets.isEmpty()) {
-      return new CheerReceiveResponse(transactionTemplate.execute(status -> toResponses(allCards)));
+      return new CheerReceiveResponse(
+          transactionTemplate.execute(status -> toResponses(findTodayCards(records))));
     }
 
     String senderHash = cheerSenderHasher.hash(userId);
@@ -312,6 +312,15 @@ public class CheerReceiveService {
       }
     }
     return Optional.empty();
+  }
+
+  /** 오늘 기록의 카드를 전부 다시 읽는다. 지연 로딩이 되도록 트랜잭션 안에서 호출해야 한다. */
+  private List<MoodRecordCard> findTodayCards(List<MoodRecord> records) {
+    List<MoodRecordCard> cards = new ArrayList<>();
+    for (MoodRecord record : records) {
+      cards.addAll(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(record.getId()));
+    }
+    return cards;
   }
 
   /** 이미 받기 처리된 카드들을 응답으로 복원한다(새로고침 등으로 다시 요청했을 때 쓴다). */

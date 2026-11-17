@@ -25,11 +25,11 @@ restRoom:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
-        description: 패치 받기 미완료 상태에서 입장 시도
+        description: 패치 받기 미완료 상태에서 입장 시도 — 도메인 전용
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "#/schemas/CheerNotReceivedYetError"
   put:
     tags: [ITR]
     operationId: ITR-REST-001-SIGNAL
@@ -55,11 +55,11 @@ restRoom:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
-        description: 입장 기록이 없는 상태(입장 시각 만료 등)에서 신호 전송 — 프론트는 입장 API를 다시 호출
+        description: 입장 기록이 없는 상태(입장 시각 만료 등)에서 신호 전송 — 도메인 전용, 프론트는 입장 API를 다시 호출
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "#/schemas/RestRoomNotEnteredError"
   delete:
     tags: [ITR]
     operationId: ITR-REST-001-EXIT
@@ -97,3 +97,23 @@ schemas:
       currentCount:
         type: integer
         description: 최근 60초 이내 신호를 보낸 방 전체 동시 접속 인원(익명)
+
+  CheerNotReceivedYetError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 400_CHEER_NOT_RECEIVED_YET
+      message:
+        type: string
+        example: 패치를 아직 받지 않았어요. 먼저 패치를 받아 주세요.
+
+  RestRoomNotEnteredError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 400_REST_ROOM_NOT_ENTERED
+      message:
+        type: string
+        example: 입장 기록이 없어요. 다시 입장해 주세요.

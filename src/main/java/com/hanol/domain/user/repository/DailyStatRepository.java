@@ -18,7 +18,4 @@ public interface DailyStatRepository extends JpaRepository<DailyStat, Long> {
 
   @Query("select max(d.lastSentAt) from DailyStat d where d.user.id = :userId")
   Optional<LocalDateTime> findLastSentAt(@Param("userId") Long userId);
-
-  List<DailyStat> findByUserIdAndStatDateBetweenAndSentCountGreaterThan(
-      Long userId, LocalDate from, LocalDate to, int sentCount);
 }

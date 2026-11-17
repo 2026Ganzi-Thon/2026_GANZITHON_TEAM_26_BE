@@ -43,55 +43,55 @@ blanketView:
                             $ref: '../components/common.yaml#/NotFoundError'
 
 blanketSlotView:
-    get:
-        tags: [BLK]
-        operationId: BLK-VIEW-002
-        summary: 패치 카드 조회
-        description: 받은 일시와 같은 날짜에 마음 기록이 있으면 '이날의 기록 보기'(CRD-VIEW-002)를 노출한다.
-        parameters:
-            - name: blanketId
-              in: path
-              required: true
-              schema:
-                  type: integer
-                  format: int64
-            - name: slotIndex
-              in: path
-              required: true
-              schema:
-                  type: integer
-                  minimum: 1
-                  maximum: 30
-        responses:
-            '200':
-                description: 칸에 채워진 패치 상세
-                content:
-                    application/json:
-                        schema:
-                            allOf:
-                                - $ref: '../components/common.yaml#/SuccessWrapper'
-                                - type: object
-                                  properties:
-                                      data:
-                                          $ref: '#/schemas/BlanketSlotData'
-            '401':
-                description: 로그인하지 않은 상태로 접근
-                content:
-                    application/json:
-                        schema:
-                            $ref: '../components/common.yaml#/UnauthorizedError'
-            '403':
-                description: 타인의 담요 칸 조회 시도
-                content:
-                    application/json:
-                        schema:
-                            $ref: '../components/common.yaml#/ForbiddenError'
-            '404':
-                description: 빈 칸 조회
-                content:
-                    application/json:
-                        schema:
-                            $ref: '../components/common.yaml#/NotFoundError'
+  get:
+    tags: [BLK]
+    operationId: BLK-VIEW-002
+    summary: 패치 카드 조회
+    description: 받은 일시와 같은 날짜에 마음 기록이 있으면 '이날의 기록 보기'(CRD-VIEW-002)를 노출한다.
+    parameters:
+      - name: blanketId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: slotIndex
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 30
+    responses:
+      "200":
+        description: 칸에 채워진 패치 상세
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../components/common.yaml#/SuccessWrapper"
+                - type: object
+                  properties:
+                    data:
+                      $ref: "#/schemas/BlanketSlotData"
+      "401":
+        description: 로그인하지 않은 상태로 접근
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/UnauthorizedError"
+      "403":
+        description: 타인의 담요 칸 조회 시도
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/ForbiddenError"
+      "404":
+        description: 빈 칸 조회
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/NotFoundError"
 
 schemas:
     BlanketViewData:
@@ -123,13 +123,22 @@ schemas:
                 example: SAD
                 description: 이 칸을 채운 감정. filled가 false면 null
 
-    BlanketSlotData:
-        type: object
-        properties:
-            message:
-                type: string
-            receivedAt:
-                type: string
-                format: date-time
-            hasMoodRecordOnDate:
-                type: boolean
+  BlanketSlotData:
+    type: object
+    properties:
+      message:
+        type: string
+      receivedAt:
+        type: string
+        format: date-time
+      hasMoodRecordOnDate:
+        type: boolean
+  InvalidSlotIndexError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 400_INVALID_SLOT_INDEX
+      message:
+        type: string
+        example: 담요 칸 번호가 올바르지 않아요.

@@ -55,23 +55,45 @@ cheerSend:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
-        description: 본문 길이 0자 또는 50자 초과 / 대상 감정 미선택 / 1차 금칙어 필터 걸림 또는 2차 AI 분류 부적절 판정
+        description: 본문 길이 0자 또는 50자 초과 / 대상 감정 미선택(Bean Validation) / 1차 금칙어 필터 또는 2차 AI 분류 부적절 판정(도메인 전용)
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/BadRequestError"
+              $ref: "../components/common.yaml#/InvalidInputError"
+            examples:
+              invalidInput:
+                summary: 본문 길이 0자 또는 50자 초과 / 대상 감정 미선택
+                value: { code: 400_INVALID_INPUT, message: 입력값이 올바르지 않습니다. }
+              harshLanguage:
+                summary: 1차 금칙어 필터 또는 2차 AI 분류 — 거친 말(도메인 전용)
+                value: { code: 400_CHEER_HARSH_LANGUAGE, message: 거친 말이 들어 있어요 }
+              demeaning:
+                summary: 1차 금칙어 필터 또는 2차 AI 분류 — 누군가를 낮추는 말(도메인 전용)
+                value: { code: 400_CHEER_DEMEANING, message: 누군가를 낮추는 말이 있어요 }
+              hurtful:
+                summary: 2차 AI 분류 — 받는 사람을 다치게 할 수 있는 말(도메인 전용)
+                value: { code: 400_CHEER_HURTFUL, message: 받는 사람을 다치게 할 수 있어요 }
+              dismissive:
+                summary: 2차 AI 분류 — 아픈 마음을 작게 만드는 말(도메인 전용)
+                value: { code: 400_CHEER_DISMISSIVE, message: 아픈 마음을 작게 만드는 말이 있어요 }
+              contactOrLink:
+                summary: 연락처·링크 포함(도메인 전용)
+                value: { code: 400_CHEER_CONTACT_OR_LINK, message: 연락처나 링크는 보낼 수 없어요 }
+              offTopic:
+                summary: 2차 AI 분류 — 패치와 맞지 않는 내용(도메인 전용)
+                value: { code: 400_CHEER_OFF_TOPIC, message: 패치와 맞지 않는 내용이에요 }
       "403":
-        description: 신고 누적으로 보내기 제한 중(BLK-RPT-002)
+        description: 신고 누적으로 보내기 제한 중(BLK-RPT-002) — 도메인 전용
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/ForbiddenError"
+              $ref: "#/schemas/CheerSendRestrictedError"
       "429":
-        description: 쿨타임 중(발송 성공 후 5분)
+        description: 쿨타임 중(발송 성공 후 5분) — 도메인 전용
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/TooManyRequestsError"
+              $ref: "#/schemas/CheerCooldownError"
       "500":
         description: 서버 전송 실패(작성 내용 유지)
         content:
@@ -132,3 +154,23 @@ schemas:
       crisisDetected:
         type: boolean
         description: true면 위기 안내 화면(ALRT-HELP-002)으로 안내한다.
+
+  CheerSendRestrictedError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 403_CHEER_SEND_RESTRICTED
+      message:
+        type: string
+        example: 신고가 누적되어 지금은 패치를 보낼 수 없어요
+
+  CheerCooldownError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 429_CHEER_COOLDOWN
+      message:
+        type: string
+        example: 패치는 5분에 한 번 보낼 수 있어요
