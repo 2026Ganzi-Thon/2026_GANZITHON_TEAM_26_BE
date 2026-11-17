@@ -111,7 +111,7 @@ class CheerReceiveServiceTest {
             });
     given(cheerSenderHasher.hash(USER_ID)).willReturn(MY_HASH);
     given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(user));
-    given(blanketPieceRepository.findDefaultContents(USER_ID)).willReturn(List.of());
+    given(blanketPieceRepository.findReceivedDefaultMessages(USER_ID)).willReturn(Set.of());
     given(defaultMessageGenerator.generate(any(), anySet())).willReturn(GENERATED);
     given(blanketRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
     given(blanketPieceRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));

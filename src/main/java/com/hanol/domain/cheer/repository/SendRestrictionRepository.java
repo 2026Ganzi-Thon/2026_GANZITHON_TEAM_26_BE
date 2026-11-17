@@ -18,12 +18,13 @@ public interface SendRestrictionRepository extends JpaRepository<SendRestriction
   @Query("select r from SendRestriction r where r.senderHash = :senderHash")
   Optional<SendRestriction> findBySenderHashForUpdate(@Param("senderHash") String senderHash);
 
-  /** 행이 없을 때만 넣는다. 이미 있으면 아무것도 하지 않는다. */
+  /** 행이 없으면 넣고, 있으면 배타 락을 잡는다. */
   @Modifying
   @Query(
       value =
-          "insert ignore into send_restrictions (sender_hash, created_at, updated_at)"
-              + " values (:senderHash, :now, :now)",
+          "insert into send_restrictions (sender_hash, created_at, updated_at)"
+              + " values (:senderHash, :now, :now)"
+              + " on duplicate key update sender_hash = sender_hash",
       nativeQuery = true)
-  int insertIfAbsent(@Param("senderHash") String senderHash, @Param("now") LocalDateTime now);
+  int insertOrLock(@Param("senderHash") String senderHash, @Param("now") LocalDateTime now);
 }

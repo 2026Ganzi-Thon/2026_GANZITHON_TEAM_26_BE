@@ -18,6 +18,7 @@ import com.hanol.global.exception.CommonErrorCode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -156,19 +157,14 @@ class CheerReportConcurrencyTest {
                 String.class,
                 SENDER_HASH,
                 cheerId))
-        .containsExactlyInAnyOrder("DELIVERED", "WAITING");
-    Long deliveredId =
-        jdbcTemplate.queryForObject(
-            "select id from cheers where sender_hash = ? and status = 'DELIVERED'",
-            Long.class,
-            SENDER_HASH);
-    assertThat(
-            jdbcTemplate.queryForList(
-                "select p.cheer_id from blanket_pieces p join blankets b on p.blanket_id = b.id"
-                    + " where b.user_id = ?",
-                Long.class,
-                userId))
-        .containsExactly(deliveredId);
+        .containsExactly("WAITING", "WAITING");
+    Map<String, Object> slot =
+        jdbcTemplate.queryForMap(
+            "select p.cheer_id, p.content from blanket_pieces p"
+                + " join blankets b on p.blanket_id = b.id where b.user_id = ?",
+            userId);
+    assertThat(slot.get("cheer_id")).isNull();
+    assertThat(slot.get("content")).isEqualTo(DEFAULT_MESSAGE);
   }
 
   @Test

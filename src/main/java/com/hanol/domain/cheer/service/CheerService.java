@@ -50,10 +50,7 @@ public class CheerService {
   /** BLK-SEND-001 보내기 가능 확인. 대기 중인 패치가 적은 감정부터, 같으면 Emotion 선언 순서. */
   @Transactional(readOnly = true)
   public CheerAvailabilityResponse getAvailability(Long userId) {
-    Optional<SendRestriction> restriction =
-        sendRestrictionRepository
-            .findBySenderHash(cheerSenderHasher.hash(userId))
-            .filter(r -> r.isRestrictedAt(LocalDateTime.now(clock)));
+    Optional<SendRestriction> restriction = findActiveRestriction(userId);
     if (restriction.isPresent()) {
       return new CheerAvailabilityResponse(
           false, restriction.get().getRestrictedUntil(), List.of());
@@ -122,14 +119,14 @@ public class CheerService {
 
   /** BLK-RPT-002 보내기 제한 중이면 403. */
   private void validateNotRestricted(Long userId) {
-    LocalDateTime now = LocalDateTime.now(clock);
-    boolean restricted =
-        sendRestrictionRepository
-            .findBySenderHash(cheerSenderHasher.hash(userId))
-            .filter(r -> r.isRestrictedAt(now))
-            .isPresent();
-    if (restricted) {
+    if (findActiveRestriction(userId).isPresent()) {
       throw new BusinessException(CheerErrorCode.CHEER_SEND_RESTRICTED);
     }
+  }
+
+  private Optional<SendRestriction> findActiveRestriction(Long userId) {
+    return sendRestrictionRepository
+        .findBySenderHash(cheerSenderHasher.hash(userId))
+        .filter(r -> r.isRestrictedAt(LocalDateTime.now(clock)));
   }
 }
