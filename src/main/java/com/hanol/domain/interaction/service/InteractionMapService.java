@@ -14,7 +14,6 @@ import com.hanol.domain.user.repository.DailyStatRepository;
 import com.hanol.global.exception.BusinessException;
 import com.hanol.global.exception.CommonErrorCode;
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -37,28 +36,28 @@ public class InteractionMapService {
   @Transactional(readOnly = true)
   public InteractionMapResponse getMap(Long userId) {
     LocalDateTime now = LocalDateTime.now(clock);
-    LocalDate today = now.toLocalDate();
+    LocalDateTime activeFrom = now.minusHours(24);
 
-    DailyStat dailyStat =
-        dailyStatRepository
-            .findByUserIdAndStatDate(userId, today)
-            .filter(stat -> stat.getPickCount() > 0)
-            .orElseThrow(() -> new BusinessException(CommonErrorCode.BAD_REQUEST));
+    List<MoodRecord> recentRecords =
+        moodRecordRepository.findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(
+            userId, activeFrom, now);
+    if (recentRecords.isEmpty()) {
+      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+    }
 
-    MoodRecord latestRecord =
-        moodRecordRepository
-            .findFirstByUserIdAndRecordDateOrderByRecordedAtDesc(userId, today)
-            .orElseThrow(() -> new BusinessException(CommonErrorCode.BAD_REQUEST));
-
+    List<Long> recentRecordIds = recentRecords.stream().map(MoodRecord::getId).toList();
     List<Emotion> emotions =
-        moodRecordCardRepository
-            .findByMoodRecordIdOrderByCardOrderAsc(latestRecord.getId())
-            .stream()
+        moodRecordCardRepository.findByMoodRecordIdInOrderByCardOrderAsc(recentRecordIds).stream()
             .map(MoodRecordCard::getEmotion)
+            .distinct()
             .toList();
 
-    boolean blanketNotStackedNotice = dailyStat.getPickCount() >= BLANKET_STACK_LIMIT;
-    LocalDateTime activeFrom = now.minusHours(24);
+    int todayPickCount =
+        dailyStatRepository
+            .findByUserIdAndStatDate(userId, now.toLocalDate())
+            .map(DailyStat::getPickCount)
+            .orElse(0);
+    boolean blanketNotStackedNotice = todayPickCount >= BLANKET_STACK_LIMIT;
 
     List<EmotionCountResponse> activeCounts = countEmotions(emotions, activeFrom, now, userId);
     if (activeCounts.stream().anyMatch(e -> e.count() > 0)) {

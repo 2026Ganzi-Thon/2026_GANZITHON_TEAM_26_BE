@@ -73,32 +73,42 @@ class InteractionMapServiceTest {
     return user;
   }
 
-  private static MoodRecord record() {
+  private static MoodRecord record(long id) {
     MoodRecord record = MoodRecord.builder().user(user()).recordedAt(NOW).dailySeq(1).build();
-    ReflectionTestUtils.setField(record, "id", RECORD_ID);
+    ReflectionTestUtils.setField(record, "id", id);
     return record;
   }
 
-  private static MoodRecordCard card(Emotion emotion, int order) {
-    return MoodRecordCard.builder().moodRecord(record()).cardOrder(order).emotion(emotion).build();
+  private static MoodRecordCard card(MoodRecord record, Emotion emotion, int order) {
+    return MoodRecordCard.builder().moodRecord(record).cardOrder(order).emotion(emotion).build();
   }
 
-  private void stubTodayRecord(int pickCount, List<MoodRecordCard> cards) {
+  private void stubRecentRecords(
+      int pickCount, List<MoodRecord> records, List<MoodRecordCard> cards) {
     given(dailyStatRepository.findByUserIdAndStatDate(USER_ID, NOW.toLocalDate()))
         .willReturn(Optional.of(dailyStat(pickCount)));
     given(
-            moodRecordRepository.findFirstByUserIdAndRecordDateOrderByRecordedAtDesc(
-                USER_ID, NOW.toLocalDate()))
-        .willReturn(Optional.of(record()));
-    given(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(RECORD_ID))
+            moodRecordRepository.findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(
+                USER_ID, NOW.minusHours(24), NOW))
+        .willReturn(records);
+    given(
+            moodRecordCardRepository.findByMoodRecordIdInOrderByCardOrderAsc(
+                records.stream().map(MoodRecord::getId).toList()))
         .willReturn(cards);
   }
 
+  private void stubRecentRecord(int pickCount, Emotion emotion) {
+    MoodRecord record = record(RECORD_ID);
+    stubRecentRecords(pickCount, List.of(record), List.of(card(record, emotion, 1)));
+  }
+
   @Test
-  @DisplayName("오늘 기록이 없으면 400_BAD_REQUEST")
-  void noRecordToday() {
-    given(dailyStatRepository.findByUserIdAndStatDate(USER_ID, NOW.toLocalDate()))
-        .willReturn(Optional.empty());
+  @DisplayName("최근 24시간 이내 기록이 없으면 400_BAD_REQUEST")
+  void noRecentRecord() {
+    given(
+            moodRecordRepository.findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(
+                USER_ID, NOW.minusHours(24), NOW))
+        .willReturn(List.of());
 
     assertThatThrownBy(() -> interactionMapService.getMap(USER_ID))
         .isInstanceOf(BusinessException.class)
@@ -109,7 +119,7 @@ class InteractionMapServiceTest {
   @Test
   @DisplayName("24시간 이내 같은 감정이 5명 이상이면 ACTIVE, 정확한 수를 내려준다")
   void activeWithExactCount() {
-    stubTodayRecord(1, List.of(card(Emotion.ANXIETY, 1)));
+    stubRecentRecord(1, Emotion.ANXIETY);
     given(
             warmthMapLogRepository.countOtherUsers(
                 eq(Emotion.ANXIETY), eq(NOW.minusHours(24)), eq(NOW), eq(USER_ID)))
@@ -126,7 +136,7 @@ class InteractionMapServiceTest {
   @Test
   @DisplayName("1~4명이어도 정확한 수를 그대로 내려준다")
   void activeReturnsExactCountEvenWhenFew() {
-    stubTodayRecord(1, List.of(card(Emotion.ANXIETY, 1)));
+    stubRecentRecord(1, Emotion.ANXIETY);
     given(warmthMapLogRepository.countOtherUsers(any(), any(), any(), eq(USER_ID))).willReturn(3L);
 
     var response = interactionMapService.getMap(USER_ID);
@@ -138,7 +148,7 @@ class InteractionMapServiceTest {
   @Test
   @DisplayName("24시간 이내는 없고 7일 이내만 있으면 QUIET")
   void fallsBackToQuiet() {
-    stubTodayRecord(1, List.of(card(Emotion.LONELY, 1)));
+    stubRecentRecord(1, Emotion.LONELY);
     given(
             warmthMapLogRepository.countOtherUsers(
                 eq(Emotion.LONELY), eq(NOW.minusHours(24)), eq(NOW), eq(USER_ID)))
@@ -157,7 +167,7 @@ class InteractionMapServiceTest {
   @Test
   @DisplayName("7일 이내도 없으면 FIRST_LIGHT, emotions는 빈 배열")
   void firstLightWhenAlone() {
-    stubTodayRecord(1, List.of(card(Emotion.LONELY, 1)));
+    stubRecentRecord(1, Emotion.LONELY);
     given(warmthMapLogRepository.countOtherUsers(any(), any(), any(), eq(USER_ID))).willReturn(0L);
 
     var response = interactionMapService.getMap(USER_ID);
@@ -169,11 +179,52 @@ class InteractionMapServiceTest {
   @Test
   @DisplayName("오늘 4번째 이상 기록이면 담요 미적립 안내가 true")
   void notifiesBlanketNotStacked() {
-    stubTodayRecord(4, List.of(card(Emotion.LONELY, 1)));
+    stubRecentRecord(4, Emotion.LONELY);
     given(warmthMapLogRepository.countOtherUsers(any(), any(), any(), eq(USER_ID))).willReturn(0L);
 
     var response = interactionMapService.getMap(USER_ID);
 
     assertThat(response.blanketNotStackedNotice()).isTrue();
+  }
+
+  @Test
+  @DisplayName("24시간 이내 여러 기록에서 고른 감정은 하나도 빠짐없이, 각 감정별로 겹쳐서(overlay) 집계된다")
+  void aggregatesEmotionsAcrossMultipleRecordsWithoutMerging() {
+    MoodRecord earlierRecord = record(RECORD_ID);
+    MoodRecord latestRecord = record(RECORD_ID + 1);
+    stubRecentRecords(
+        2,
+        List.of(earlierRecord, latestRecord),
+        List.of(card(earlierRecord, Emotion.ANXIETY, 1), card(latestRecord, Emotion.LONELY, 1)));
+    given(
+            warmthMapLogRepository.countOtherUsers(
+                eq(Emotion.ANXIETY), eq(NOW.minusHours(24)), eq(NOW), eq(USER_ID)))
+        .willReturn(5L);
+    given(
+            warmthMapLogRepository.countOtherUsers(
+                eq(Emotion.LONELY), eq(NOW.minusHours(24)), eq(NOW), eq(USER_ID)))
+        .willReturn(3L);
+
+    var response = interactionMapService.getMap(USER_ID);
+
+    assertThat(response.status()).isEqualTo(InteractionMapStatus.ACTIVE);
+    assertThat(response.emotions()).hasSize(2);
+    assertThat(response.emotions()).extracting("count").containsExactlyInAnyOrder(5, 3);
+  }
+
+  @Test
+  @DisplayName("같은 감정으로 여러 번 기록해도 해당 감정은 한 번만 집계한다")
+  void dedupesSameEmotionAcrossMultipleRecords() {
+    MoodRecord earlierRecord = record(RECORD_ID);
+    MoodRecord latestRecord = record(RECORD_ID + 1);
+    stubRecentRecords(
+        2,
+        List.of(earlierRecord, latestRecord),
+        List.of(card(earlierRecord, Emotion.ANXIETY, 1), card(latestRecord, Emotion.ANXIETY, 1)));
+    given(warmthMapLogRepository.countOtherUsers(any(), any(), any(), eq(USER_ID))).willReturn(4L);
+
+    var response = interactionMapService.getMap(USER_ID);
+
+    assertThat(response.emotions()).hasSize(1);
   }
 }
