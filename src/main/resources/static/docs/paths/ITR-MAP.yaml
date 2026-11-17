@@ -5,7 +5,8 @@ interactionMap:
     summary: 온기 지도 인원 표시
     description: >-
       최근 24시간 이내 집계(ACTIVE)가 있으면 그것을, 없으면 24시간 초과~7일 이내 집계(QUIET)를,
-      그마저 없으면 FIRST_LIGHT를 상태로 내려준다. 오늘 고른 감정이 2개면 두 감정 각각의 인원을 emotions에 담는다.
+      그마저 없으면 FIRST_LIGHT를 상태로 내려준다. 최근 24시간 이내 고른 감정이 2개 이상이면 감정 각각의 인원을
+      emotions에 담는다(overlay 허용, 감정 간 합산하지 않음).
     responses:
       "200":
         description: 지도 인원 집계
@@ -25,7 +26,7 @@ interactionMap:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
       "400":
-        description: 오늘 기록 없음
+        description: 최근 24시간 이내 기록 없음
         content:
           application/json:
             schema:
