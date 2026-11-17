@@ -6,6 +6,7 @@ import com.hanol.domain.interaction.repository.WarmthMapLogRepository;
 import com.hanol.domain.mood.dto.request.MoodRecordCreateRequest;
 import com.hanol.domain.mood.dto.request.StoryCheckRequest;
 import com.hanol.domain.mood.dto.response.MoodCalendarResponse;
+import com.hanol.domain.mood.dto.response.MoodCalendarSentPatchResponse;
 import com.hanol.domain.mood.dto.response.MoodDayListResponse;
 import com.hanol.domain.mood.dto.response.MoodDayRecordResponse;
 import com.hanol.domain.mood.dto.response.MoodDetailPatchResponse;
@@ -131,22 +132,33 @@ public class MoodService {
   public MoodCalendarResponse getCalendar(Long userId, YearMonth yearMonth) {
     LocalDate from = yearMonth.atDay(1);
     LocalDate to = yearMonth.atEndOfMonth();
-    List<LocalDate> sentDates =
+    List<LocalDate> recordedDates = moodRecordRepository.findRecordDates(userId, from, to);
+    List<MoodCalendarSentPatchResponse> sentPatchCounts =
         dailyStatRepository
-            .findByUserIdAndStatDateBetweenAndSentCountGreaterThan(userId, from, to, 0)
+            .findByUserIdAndStatDateBetweenAndSentCountGreaterThanOrderByStatDateAsc(
+                userId, from, to, 0)
             .stream()
-            .map(DailyStat::getStatDate)
+            .map(stat -> new MoodCalendarSentPatchResponse(stat.getStatDate(), stat.getSentCount()))
             .toList();
-    return new MoodCalendarResponse(
-        moodRecordRepository.findRecordDates(userId, from, to), sentDates);
+    return new MoodCalendarResponse(recordedDates, sentPatchCounts);
   }
 
   @Transactional(readOnly = true)
   public MoodDayListResponse getDayRecords(Long userId, LocalDate date) {
+    Integer sentPatchCount =
+        dailyStatRepository
+            .findByUserIdAndStatDate(userId, date)
+            .map(DailyStat::getSentCount)
+            .filter(count -> count > 0)
+            .orElse(null);
+
     List<MoodRecord> records =
         moodRecordRepository.findByUserIdAndRecordDateOrderByRecordedAtAsc(userId, date);
     if (records.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.NOT_FOUND);
+      if (sentPatchCount == null) {
+        throw new BusinessException(CommonErrorCode.NOT_FOUND);
+      }
+      return new MoodDayListResponse(sentPatchCount, List.of());
     }
 
     List<Long> recordIds = records.stream().map(MoodRecord::getId).toList();
@@ -157,13 +169,6 @@ public class MoodService {
                     card -> card.getMoodRecord().getId(),
                     Collectors.mapping(card -> card.getEmotion().name(), Collectors.toList())));
     Set<Long> storyRecordIds = new HashSet<>(storyRepository.findMoodRecordIds(recordIds));
-
-    Integer sentPatchCount =
-        dailyStatRepository
-            .findByUserIdAndStatDate(userId, date)
-            .map(DailyStat::getSentCount)
-            .filter(count -> count > 0)
-            .orElse(null);
 
     return new MoodDayListResponse(
         sentPatchCount,
