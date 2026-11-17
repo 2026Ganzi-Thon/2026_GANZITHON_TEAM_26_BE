@@ -1,5 +1,6 @@
 package com.hanol.domain.mood.entity;
 
+import com.hanol.domain.blanket.entity.BlanketPiece;
 import com.hanol.global.common.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,11 +54,26 @@ public class MoodRecordCard extends BaseTimeEntity {
   @Column(name = "receive_status", nullable = false, length = 20)
   private ReceiveStatus receiveStatus;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "blanket_piece_id")
+  private BlanketPiece blanketPiece;
+
   @Builder
   private MoodRecordCard(MoodRecord moodRecord, int cardOrder, Emotion emotion) {
     this.moodRecord = moodRecord;
     this.cardOrder = cardOrder;
     this.emotion = emotion;
     this.receiveStatus = ReceiveStatus.NOT_RECEIVED;
+  }
+
+  /** 1~3번째 기록으로 받은 패치(또는 기본 메시지). 담요 칸과 연결한다. */
+  public void receive(BlanketPiece piece) {
+    this.receiveStatus = ReceiveStatus.RECEIVED;
+    this.blanketPiece = piece;
+  }
+
+  /** 4번째 이상 기록의 기본 위로. 문장은 저장하지 않는다. */
+  public void receiveDefaultComfort() {
+    this.receiveStatus = ReceiveStatus.DEFAULT_COMFORT;
   }
 }

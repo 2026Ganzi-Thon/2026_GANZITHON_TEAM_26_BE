@@ -10,11 +10,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.hanol.domain.alert.service.CrisisDetector;
+import com.hanol.domain.blanket.entity.BlanketPiece;
 import com.hanol.domain.interaction.entity.WarmthMapLog;
 import com.hanol.domain.interaction.repository.WarmthMapLogRepository;
 import com.hanol.domain.mood.dto.request.MoodRecordCreateRequest;
+import com.hanol.domain.mood.dto.response.MoodDetailPatchResponse;
+import com.hanol.domain.mood.dto.response.MoodDetailResponse;
 import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
+import com.hanol.domain.mood.entity.MoodRecordCard;
+import com.hanol.domain.mood.entity.ReceiveStatus;
 import com.hanol.domain.mood.exception.MoodErrorCode;
 import com.hanol.domain.mood.repository.MoodRecordCardRepository;
 import com.hanol.domain.mood.repository.MoodRecordRepository;
@@ -211,6 +216,43 @@ class MoodServiceTest {
 
     assertErrorCode(() -> moodService.getRecord(USER_ID, RECORD_ID), CommonErrorCode.FORBIDDEN);
     verify(moodRecordCardRepository, never()).findByMoodRecordIdOrderByCardOrderAsc(anyLong());
+  }
+
+  @Test
+  @DisplayName("상세 조회에서 RECEIVED 카드의 message 는 연결된 담요 칸 content")
+  void getRecordMessageOfReceivedCard() {
+    MoodRecord record = record(USER_ID);
+    given(moodRecordRepository.findById(RECORD_ID)).willReturn(Optional.of(record));
+    MoodRecordCard card =
+        MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.LONELY).build();
+    card.receive(
+        BlanketPiece.builder().slotIndex(1).content("산책하면 좀 나아졌어요").receivedAt(NOW).build());
+    given(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(RECORD_ID))
+        .willReturn(List.of(card));
+
+    MoodDetailResponse response = moodService.getRecord(USER_ID, RECORD_ID);
+
+    assertThat(response.patches())
+        .containsExactly(
+            new MoodDetailPatchResponse("LONELY", ReceiveStatus.RECEIVED, "산책하면 좀 나아졌어요"));
+  }
+
+  @Test
+  @DisplayName("상세 조회에서 DEFAULT_COMFORT 카드의 message 는 null")
+  void getRecordMessageOfDefaultComfortCard() {
+    MoodRecord record = record(USER_ID);
+    given(moodRecordRepository.findById(RECORD_ID)).willReturn(Optional.of(record));
+    MoodRecordCard card =
+        MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.TEARFUL).build();
+    card.receiveDefaultComfort();
+    given(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(RECORD_ID))
+        .willReturn(List.of(card));
+
+    MoodDetailResponse response = moodService.getRecord(USER_ID, RECORD_ID);
+
+    assertThat(response.patches())
+        .containsExactly(
+            new MoodDetailPatchResponse("TEARFUL", ReceiveStatus.DEFAULT_COMFORT, null));
   }
 
   @Test
