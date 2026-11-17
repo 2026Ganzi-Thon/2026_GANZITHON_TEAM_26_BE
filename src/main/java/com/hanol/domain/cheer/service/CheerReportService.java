@@ -151,9 +151,11 @@ public class CheerReportService {
 
     piece.replace(replacement, message);
 
+    boolean blanketCompleted = piece.getBlanket().isCompleted();
     return replacement != null
-        ? ReceivedCheerResponse.ofCheer(replacement.getId(), emotion, message)
-        : ReceivedCheerResponse.ofDefault(emotion, message);
+        ? ReceivedCheerResponse.ofCheer(
+            replacement.getId(), emotion, message, piece.getSlotIndex(), blanketCompleted)
+        : ReceivedCheerResponse.ofDefault(emotion, message, piece.getSlotIndex(), blanketCompleted);
   }
 
   /** BLK-RPT-002 보내기 제한. 발신자 행을 잠근 뒤 최근 30일(마지막 해제 시각 이후) 신고가 3번이면 24시간 제한한다. 이미 제한 중이면 늘리지 않는다. */
