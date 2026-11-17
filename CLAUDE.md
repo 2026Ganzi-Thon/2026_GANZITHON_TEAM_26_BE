@@ -10,6 +10,7 @@
 브랜치 규칙: @docs/branch.md
 로깅/MDC 규칙: @docs/logging.md
 DB 마이그레이션 규칙: @docs/flyway.md
+테스트 컨벤션: @docs/test-convention.md
 
 PR 템플릿: @.github/pull_request_template.md
 이슈 템플릿: @.github/ISSUE_TEMPLATE/bug.yml, @.github/ISSUE_TEMPLATE/feature.yml
@@ -109,7 +110,7 @@ domain/cheer
 
 - 이메일 인증번호 (예: 5분 만료)
 - 로그아웃한 Access 토큰 블랙리스트 (`JwtProvider.getRemainingValidity` 만큼 만료), Refresh 토큰
-- 패치 선물 가능 개수(발송권), 함께 쉬는 방 현재 인원 등
+- 함께 쉬는 방 현재 인원 등
 
 키 이름 형식: `{도메인}:{용도}:{id}` 예) `auth:email-code:user@example.com`, `cheer:cooldown:12`
 
