@@ -129,8 +129,16 @@ public class MoodService {
 
   @Transactional(readOnly = true)
   public MoodCalendarResponse getCalendar(Long userId, YearMonth yearMonth) {
+    LocalDate from = yearMonth.atDay(1);
+    LocalDate to = yearMonth.atEndOfMonth();
+    List<LocalDate> sentDates =
+        dailyStatRepository
+            .findByUserIdAndStatDateBetweenAndSentCountGreaterThan(userId, from, to, 0)
+            .stream()
+            .map(DailyStat::getStatDate)
+            .toList();
     return new MoodCalendarResponse(
-        moodRecordRepository.findRecordDates(userId, yearMonth.atDay(1), yearMonth.atEndOfMonth()));
+        moodRecordRepository.findRecordDates(userId, from, to), sentDates);
   }
 
   @Transactional(readOnly = true)
@@ -190,13 +198,16 @@ public class MoodService {
             .map(
                 card ->
                     new MoodDetailPatchResponse(
-                        card.getEmotion().name(),
-                        card.getReceiveStatus(),
-                        card.getBlanketPiece() == null
-                            ? null
-                            : card.getBlanketPiece().getContent()))
+                        card.getEmotion().name(), card.getReceiveStatus(), patchMessage(card)))
             .toList(),
         story);
+  }
+
+  private static String patchMessage(MoodRecordCard card) {
+    if (card.getBlanketPiece() != null) {
+      return card.getBlanketPiece().getContent();
+    }
+    return card.getComfortMessage();
   }
 
   @Transactional

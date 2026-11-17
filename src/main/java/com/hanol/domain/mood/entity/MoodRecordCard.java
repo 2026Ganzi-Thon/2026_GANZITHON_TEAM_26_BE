@@ -58,6 +58,10 @@ public class MoodRecordCard extends BaseTimeEntity {
   @JoinColumn(name = "blanket_piece_id")
   private BlanketPiece blanketPiece;
 
+  /** 4번째 이상 기록의 기본 위로 문구. 담요에는 쌓이지 않지만 기록 상세(캘린더)에서 다시 볼 수 있게 저장한다. */
+  @Column(name = "comfort_message", length = 50)
+  private String comfortMessage;
+
   @Builder
   private MoodRecordCard(MoodRecord moodRecord, int cardOrder, Emotion emotion) {
     this.moodRecord = moodRecord;
@@ -72,8 +76,9 @@ public class MoodRecordCard extends BaseTimeEntity {
     this.blanketPiece = piece;
   }
 
-  /** 4번째 이상 기록의 기본 위로. 문장은 저장하지 않는다. */
-  public void receiveDefaultComfort() {
+  /** 4번째 이상 기록의 기본 위로. 담요에는 쌓이지 않지만 문구는 저장해 기록 상세에서 다시 볼 수 있다. */
+  public void receiveDefaultComfort(String message) {
     this.receiveStatus = ReceiveStatus.DEFAULT_COMFORT;
+    this.comfortMessage = message;
   }
 }
