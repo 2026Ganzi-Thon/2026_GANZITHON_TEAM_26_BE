@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -32,8 +31,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,7 +57,6 @@ class CheerReportServiceTest {
   private static final Long CHEER_ID = 50L;
   private static final Long PIECE_ID = 200L;
   private static final int SLOT_INDEX = 7;
-  private static final String MY_HASH = "my-hash";
   private static final String REPORTED_HASH = "reported-sender-hash";
   private static final String GENERATED = "AI 가 만든 기본 메시지예요.";
 
@@ -67,7 +65,6 @@ class CheerReportServiceTest {
   @Mock private SendRestrictionRepository sendRestrictionRepository;
   @Mock private BlanketPieceRepository blanketPieceRepository;
   @Mock private UserRepository userRepository;
-  @Mock private CheerSenderHasher cheerSenderHasher;
   @Mock private DefaultCheerMessageGenerator defaultMessageGenerator;
   @Mock private PlatformTransactionManager transactionManager;
 
@@ -86,9 +83,7 @@ class CheerReportServiceTest {
             sendRestrictionRepository,
             blanketPieceRepository,
             userRepository,
-            cheerSenderHasher,
             defaultMessageGenerator,
-            new CheerFallbackMessages(),
             Clock.fixed(NOW_INSTANT, ZONE),
             transactionManager);
     user = User.builder().email("user@example.com").password("encoded").build();
@@ -108,9 +103,10 @@ class CheerReportServiceTest {
     restriction = SendRestriction.builder().senderHash(REPORTED_HASH).build();
     given(sendRestrictionRepository.findBySenderHashForUpdate(REPORTED_HASH))
         .willReturn(Optional.of(restriction));
-    given(cheerSenderHasher.hash(USER_ID)).willReturn(MY_HASH);
     given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(user));
-    given(blanketPieceRepository.findDefaultContents(USER_ID)).willReturn(List.of());
+    given(blanketPieceRepository.findReceivedDefaultMessages(USER_ID)).willReturn(Set.of());
+    given(blanketPieceRepository.existsByCheerIdAndBlanketUserId(CHEER_ID, USER_ID))
+        .willReturn(true);
     given(defaultMessageGenerator.generate(any(), anySet())).willReturn(GENERATED);
     given(cheerRepository.findById(CHEER_ID)).willReturn(Optional.of(reported));
     given(blanketPieceRepository.findFirstByCheerIdAndBlanketUserId(CHEER_ID, USER_ID))
@@ -126,21 +122,6 @@ class CheerReportServiceTest {
     ReflectionTestUtils.setField(cheer, "id", id);
     ReflectionTestUtils.setField(cheer, "status", status);
     return cheer;
-  }
-
-  private Cheer givenWaitingCheer(Long id, String content) {
-    Cheer waiting = cheer(id, "other-hash", Emotion.LONELY, content, CheerStatus.WAITING);
-    given(
-            cheerRepository.existsByTargetEmotionAndStatusAndSenderHashNot(
-                Emotion.LONELY, CheerStatus.WAITING, MY_HASH))
-        .willReturn(true);
-    given(
-            cheerRepository.findQueueCandidates(
-                eq(Emotion.LONELY), eq(CheerStatus.WAITING), eq(MY_HASH), any()))
-        .willReturn(List.of(waiting));
-    given(cheerRepository.changeStatusIf(id, CheerStatus.WAITING, CheerStatus.DELIVERED, NOW))
-        .willReturn(1);
-    return waiting;
   }
 
   private void assertErrorCode(CommonErrorCode errorCode) {
@@ -171,8 +152,8 @@ class CheerReportServiceTest {
   @Test
   @DisplayName("내 담요에 없는 패치를 신고하면 403")
   void rejectCheerNotInMyBlanket() {
-    given(blanketPieceRepository.findFirstByCheerIdAndBlanketUserId(CHEER_ID, USER_ID))
-        .willReturn(Optional.empty());
+    given(blanketPieceRepository.existsByCheerIdAndBlanketUserId(CHEER_ID, USER_ID))
+        .willReturn(false);
 
     assertErrorCode(CommonErrorCode.FORBIDDEN);
     verify(transactionManager, never()).getTransaction(any());
@@ -187,36 +168,34 @@ class CheerReportServiceTest {
         .willReturn(Optional.of(hidden));
 
     assertErrorCode(CommonErrorCode.CONFLICT);
-    verify(blanketPieceRepository, times(1)).findFirstByCheerIdAndBlanketUserId(CHEER_ID, USER_ID);
+    verify(blanketPieceRepository, never()).findFirstByCheerIdAndBlanketUserId(CHEER_ID, USER_ID);
+    verify(blanketPieceRepository, times(1)).existsByCheerIdAndBlanketUserId(CHEER_ID, USER_ID);
     verify(cheerRepository, never()).changeStatusIf(anyLong(), any(), any(), any());
   }
 
   @Test
   @DisplayName("숨김 처리에서 바뀐 행이 0이면 409, 신고 기록·칸 교체 없음")
   void rejectWhenHideLost() {
-    givenWaitingCheer(60L, "새 패치");
     given(cheerRepository.changeStatusIf(CHEER_ID, CheerStatus.DELIVERED, CheerStatus.HIDDEN, NOW))
         .willReturn(0);
 
     assertErrorCode(CommonErrorCode.CONFLICT);
     verify(cheerReportRepository, never()).save(any());
-    verify(cheerRepository, never())
-        .changeStatusIf(60L, CheerStatus.WAITING, CheerStatus.DELIVERED, NOW);
     assertThat(piece.getCheer()).isSameAs(reported);
     assertThat(piece.getContent()).isEqualTo("신고된 패치");
   }
 
   @Test
-  @DisplayName("대기열 패치로 교체: 칸 문장이 바뀌고 받은 시각·칸 위치는 그대로, 신고 기록에 발신자 해시 저장")
-  void replaceWithQueuedCheer() {
-    Cheer waiting = givenWaitingCheer(60L, "새 패치");
-
+  @DisplayName(
+      "신고하면 대기열을 보지 않고 AI 기본 메시지로 교체: cheerId null·isDefault true·신고된 패치 감정,"
+          + " 칸 문장만 바뀌고 받은 시각·칸 위치는 그대로, 신고 기록에 발신자 해시 저장")
+  void replaceWithDefaultMessage() {
     CheerReportResponse response = service.report(USER_ID, CHEER_ID);
 
     assertThat(response.replaced())
-        .isEqualTo(ReceivedCheerResponse.ofCheer(60L, Emotion.LONELY, "새 패치"));
-    assertThat(piece.getCheer()).isSameAs(waiting);
-    assertThat(piece.getContent()).isEqualTo("새 패치");
+        .isEqualTo(ReceivedCheerResponse.ofDefault(Emotion.LONELY, GENERATED, SLOT_INDEX, false));
+    assertThat(piece.getCheer()).isNull();
+    assertThat(piece.getContent()).isEqualTo(GENERATED);
     assertThat(piece.getReceivedAt()).isEqualTo(RECEIVED_AT);
     assertThat(piece.getSlotIndex()).isEqualTo(SLOT_INDEX);
     ArgumentCaptor<CheerReport> captor = ArgumentCaptor.forClass(CheerReport.class);
@@ -224,38 +203,9 @@ class CheerReportServiceTest {
     assertThat(captor.getValue().getCheer()).isSameAs(reported);
     assertThat(captor.getValue().getSenderHash()).isEqualTo(REPORTED_HASH);
     assertThat(captor.getValue().getReportedAt()).isEqualTo(NOW);
-    verify(defaultMessageGenerator, never()).generate(any(), anySet());
-  }
-
-  @Test
-  @DisplayName("대기열이 비면 기본 메시지로 교체, cheerId null·isDefault true·신고된 패치의 감정")
-  void replaceWithDefaultMessageWhenQueueEmpty() {
-    given(
-            cheerRepository.existsByTargetEmotionAndStatusAndSenderHashNot(
-                Emotion.LONELY, CheerStatus.WAITING, MY_HASH))
-        .willReturn(false);
-
-    CheerReportResponse response = service.report(USER_ID, CHEER_ID);
-
-    assertThat(response.replaced())
-        .isEqualTo(new ReceivedCheerResponse(null, Emotion.LONELY, GENERATED, true));
-    assertThat(piece.getCheer()).isNull();
-    assertThat(piece.getContent()).isEqualTo(GENERATED);
     verify(cheerRepository, never()).findQueueCandidates(any(), any(), any(), any());
-  }
-
-  @Test
-  @DisplayName("대기열에서 꺼낼 때 내 sender hash 로 내가 보낸 패치를 제외한다")
-  void excludeMyCheersFromQueue() {
-    givenWaitingCheer(60L, "새 패치");
-
-    service.report(USER_ID, CHEER_ID);
-
-    verify(cheerRepository)
-        .existsByTargetEmotionAndStatusAndSenderHashNot(
-            Emotion.LONELY, CheerStatus.WAITING, MY_HASH);
-    verify(cheerRepository)
-        .findQueueCandidates(eq(Emotion.LONELY), eq(CheerStatus.WAITING), eq(MY_HASH), any());
+    verify(cheerRepository, never())
+        .existsByTargetEmotionAndStatusAndSenderHashNot(any(), any(), any());
   }
 
   @Test
@@ -268,7 +218,7 @@ class CheerReportServiceTest {
 
     service.report(USER_ID, CHEER_ID);
 
-    verify(sendRestrictionRepository).insertIfAbsent(REPORTED_HASH, NOW);
+    verify(sendRestrictionRepository).insertOrLock(REPORTED_HASH, NOW);
     assertThat(restriction.getRestrictedUntil()).isEqualTo(NOW.plusHours(24));
   }
 

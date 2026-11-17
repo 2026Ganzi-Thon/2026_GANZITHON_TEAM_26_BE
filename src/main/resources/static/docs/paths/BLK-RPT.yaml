@@ -13,7 +13,7 @@ cheerReport:
           format: int64
     responses:
       "200":
-        description: 숨김 처리 및 새 패치로 교체 완료
+        description: 숨김 처리 및 AI 기본 메시지로 교체 완료
         content:
           application/json:
             schema:

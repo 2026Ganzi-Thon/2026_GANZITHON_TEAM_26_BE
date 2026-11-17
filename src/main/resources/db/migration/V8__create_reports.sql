@@ -7,6 +7,7 @@ CREATE TABLE reports
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
+    INDEX idx_reports_sender_hash_reported_at (sender_hash, reported_at),
     CONSTRAINT uk_reports_cheer_id UNIQUE (cheer_id),
     CONSTRAINT fk_reports_cheer_id FOREIGN KEY (cheer_id) REFERENCES cheers (id)
 ) ENGINE = InnoDB

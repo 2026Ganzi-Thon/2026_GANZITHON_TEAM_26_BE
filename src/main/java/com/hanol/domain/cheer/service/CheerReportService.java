@@ -18,23 +18,18 @@ import com.hanol.global.exception.CommonErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** BLK-RPT-001 패치 신고. 숨기고 같은 담요 칸을 새 패치(또는 기본 메시지)로 바꾼다. */
+/** BLK-RPT-001 패치 신고. 숨기고 같은 담요 칸을 AI 기본 메시지로 바꾼다. */
 @Slf4j
 @Service
 public class CheerReportService {
 
-  static final int CLAIM_CANDIDATE_SIZE = 5;
   static final int RESTRICTION_REPORT_COUNT = 3;
   static final int RESTRICTION_WINDOW_DAYS = 30;
   static final int RESTRICTION_HOURS = 24;
@@ -44,9 +39,7 @@ public class CheerReportService {
   private final SendRestrictionRepository sendRestrictionRepository;
   private final BlanketPieceRepository blanketPieceRepository;
   private final UserRepository userRepository;
-  private final CheerSenderHasher cheerSenderHasher;
   private final DefaultCheerMessageGenerator defaultMessageGenerator;
-  private final CheerFallbackMessages fallbackMessages;
   private final Clock clock;
   private final TransactionTemplate transactionTemplate;
 
@@ -60,9 +53,7 @@ public class CheerReportService {
       SendRestrictionRepository sendRestrictionRepository,
       BlanketPieceRepository blanketPieceRepository,
       UserRepository userRepository,
-      CheerSenderHasher cheerSenderHasher,
       DefaultCheerMessageGenerator defaultMessageGenerator,
-      CheerFallbackMessages fallbackMessages,
       Clock clock,
       PlatformTransactionManager transactionManager) {
     this.cheerRepository = cheerRepository;
@@ -70,9 +61,7 @@ public class CheerReportService {
     this.sendRestrictionRepository = sendRestrictionRepository;
     this.blanketPieceRepository = blanketPieceRepository;
     this.userRepository = userRepository;
-    this.cheerSenderHasher = cheerSenderHasher;
     this.defaultMessageGenerator = defaultMessageGenerator;
-    this.fallbackMessages = fallbackMessages;
     this.clock = clock;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
     this.transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
@@ -84,35 +73,22 @@ public class CheerReportService {
             .findById(cheerId)
             .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
     validateNotHidden(reported);
-    findMyPiece(userId, cheerId);
+    if (!blanketPieceRepository.existsByCheerIdAndBlanketUserId(cheerId, userId)) {
+      throw new BusinessException(CommonErrorCode.FORBIDDEN);
+    }
 
     Emotion emotion = reported.getTargetEmotion();
-    String senderHash = cheerSenderHasher.hash(userId);
-    Set<String> receivedDefaults =
-        blanketPieceRepository.findDefaultContents(userId).stream()
-            .map(String::strip)
-            .collect(Collectors.toSet());
-    String defaultMessage =
-        cheerRepository.existsByTargetEmotionAndStatusAndSenderHashNot(
-                emotion, CheerStatus.WAITING, senderHash)
-            ? null
-            : defaultMessageGenerator.generate(emotion, receivedDefaults);
+    Set<String> receivedDefaults = blanketPieceRepository.findReceivedDefaultMessages(userId);
+    String defaultMessage = defaultMessageGenerator.generate(emotion, receivedDefaults);
 
     ReceivedCheerResponse replaced =
         transactionTemplate.execute(
-            status ->
-                hideAndReplace(
-                    userId, cheerId, emotion, senderHash, defaultMessage, receivedDefaults));
+            status -> hideAndReplace(userId, cheerId, emotion, defaultMessage));
     return new CheerReportResponse(replaced);
   }
 
   private ReceivedCheerResponse hideAndReplace(
-      Long userId,
-      Long cheerId,
-      Emotion emotion,
-      String senderHash,
-      String defaultMessage,
-      Set<String> receivedDefaults) {
+      Long userId, Long cheerId, Emotion emotion, String defaultMessage) {
     userRepository
         .findByIdForUpdate(userId)
         .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
@@ -137,30 +113,16 @@ public class CheerReportService {
     log.info("Cheer reported. cheerId={}", cheerId);
     restrictSenderIfNeeded(cheerId, reported.getSenderHash(), now);
 
-    Cheer replacement =
-        defaultMessage == null ? claim(emotion, senderHash, now).orElse(null) : null;
-    String message;
-    if (replacement != null) {
-      message = replacement.getContent();
-    } else if (defaultMessage != null) {
-      message = defaultMessage;
-    } else {
-      log.info("Cheer claim lost, using fallback. emotion={}", emotion);
-      message = fallbackMessages.pick(emotion, receivedDefaults);
-    }
-
-    piece.replace(replacement, message);
+    piece.replace(null, defaultMessage);
 
     boolean blanketCompleted = piece.getBlanket().isCompleted();
-    return replacement != null
-        ? ReceivedCheerResponse.ofCheer(
-            replacement.getId(), emotion, message, piece.getSlotIndex(), blanketCompleted)
-        : ReceivedCheerResponse.ofDefault(emotion, message, piece.getSlotIndex(), blanketCompleted);
+    return ReceivedCheerResponse.ofDefault(
+        emotion, defaultMessage, piece.getSlotIndex(), blanketCompleted);
   }
 
   /** BLK-RPT-002 보내기 제한. 발신자 행을 잠근 뒤 최근 30일(마지막 해제 시각 이후) 신고가 3번이면 24시간 제한한다. 이미 제한 중이면 늘리지 않는다. */
   private void restrictSenderIfNeeded(Long cheerId, String reportedHash, LocalDateTime now) {
-    sendRestrictionRepository.insertIfAbsent(reportedHash, now);
+    sendRestrictionRepository.insertOrLock(reportedHash, now);
     SendRestriction restriction =
         sendRestrictionRepository.findBySenderHashForUpdate(reportedHash).orElseThrow();
     if (restriction.isRestrictedAt(now)) {
@@ -179,21 +141,6 @@ public class CheerReportService {
           cheerId,
           restriction.getRestrictedUntil());
     }
-  }
-
-  /** 후보를 오래된 순으로 보며 WAITING → DELIVERED 선점. 1행이 바뀐 것만 내 것이다. */
-  private Optional<Cheer> claim(Emotion emotion, String senderHash, LocalDateTime now) {
-    List<Cheer> candidates =
-        cheerRepository.findQueueCandidates(
-            emotion, CheerStatus.WAITING, senderHash, PageRequest.of(0, CLAIM_CANDIDATE_SIZE));
-    for (Cheer candidate : candidates) {
-      if (cheerRepository.changeStatusIf(
-              candidate.getId(), CheerStatus.WAITING, CheerStatus.DELIVERED, now)
-          == 1) {
-        return Optional.of(candidate);
-      }
-    }
-    return Optional.empty();
   }
 
   private BlanketPiece findMyPiece(Long userId, Long cheerId) {

@@ -111,7 +111,7 @@ class CheerReceiveServiceTest {
             });
     given(cheerSenderHasher.hash(USER_ID)).willReturn(MY_HASH);
     given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(user));
-    given(blanketPieceRepository.findDefaultContents(USER_ID)).willReturn(List.of());
+    given(blanketPieceRepository.findReceivedDefaultMessages(USER_ID)).willReturn(Set.of());
     given(defaultMessageGenerator.generate(any(), anySet())).willReturn(GENERATED);
     given(blanketRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
     given(blanketPieceRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
@@ -195,6 +195,22 @@ class CheerReceiveServiceTest {
     return blanket;
   }
 
+  /** 이미 적립이 끝난 칸(재조회 테스트용). */
+  private BlanketPiece pieceAlreadyReceived(
+      Long id, int slotIndex, Emotion emotion, String content) {
+    Blanket blanket = Blanket.builder().user(user).build();
+    BlanketPiece piece =
+        BlanketPiece.builder()
+            .blanket(blanket)
+            .slotIndex(slotIndex)
+            .emotion(emotion)
+            .content(content)
+            .receivedAt(NOW)
+            .build();
+    ReflectionTestUtils.setField(piece, "id", id);
+    return piece;
+  }
+
   private List<BlanketPiece> savedPieces() {
     ArgumentCaptor<BlanketPiece> captor = ArgumentCaptor.forClass(BlanketPiece.class);
     verify(blanketPieceRepository, atLeastOnce()).save(captor.capture());
@@ -218,39 +234,47 @@ class CheerReceiveServiceTest {
   }
 
   @Test
-  @DisplayName("이미 받은 기록으로 다시 받으면 409_CONFLICT, 생성기·트랜잭션을 부르지 않는다")
-  void rejectAlreadyReceived() {
+  @DisplayName("이미 받은 기록으로 다시 받으면 그때 받은 패치를 그대로 돌려주고 생성기는 부르지 않는다")
+  void alreadyReceivedReturnsSamePatch() {
     List<MoodRecordCard> cards = givenCards(givenTodayRecord(1), Emotion.LONELY);
-    cards.get(0).receive(null);
+    cards.get(0).receive(pieceAlreadyReceived(50L, 4, Emotion.LONELY, "예전에 받은 메시지"));
 
-    assertErrorCode(() -> service.receive(USER_ID), CommonErrorCode.CONFLICT);
+    CheerReceiveResponse response = service.receive(USER_ID);
+
+    assertThat(response.patches())
+        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.LONELY, "예전에 받은 메시지", 4, false));
     verify(defaultMessageGenerator, never()).generate(any(), anySet());
-    verify(transactionTemplate, never()).execute(any());
   }
 
   @Test
-  @DisplayName("4번째 이상 기록으로 다시 받으면 409_CONFLICT")
-  void rejectDefaultComfortAgain() {
+  @DisplayName("4번째 이상 기록으로 다시 받으면 저장된 기본위로문구를 그대로 돌려준다")
+  void defaultComfortAgainReturnsSavedMessage() {
     List<MoodRecordCard> cards = givenCards(givenTodayRecord(4), Emotion.LONELY);
-    cards.get(0).receiveDefaultComfort();
+    cards.get(0).receiveDefaultComfort("저장된 위로 문구");
 
-    assertErrorCode(() -> service.receive(USER_ID), CommonErrorCode.CONFLICT);
-    verify(transactionTemplate, never()).execute(any());
+    CheerReceiveResponse response = service.receive(USER_ID);
+
+    assertThat(response.patches())
+        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.LONELY, "저장된 위로 문구"));
+    verify(defaultMessageGenerator, never()).generate(any(), anySet());
   }
 
   @Test
-  @DisplayName("트랜잭션 안에서 다시 읽었을 때 이미 받았으면 409_CONFLICT, 꺼내기·적립하지 않는다")
-  void rejectWhenReceivedWhileWaitingLock() {
+  @DisplayName("트랜잭션 안에서 다시 읽었을 때 이미 받았으면 그 패치를 그대로 돌려주고 꺼내기·적립하지 않는다")
+  void receivedWhileWaitingLockReturnsExisting() {
     MoodRecord record = givenTodayRecord(1);
     MoodRecordCard notReceived = givenCards(record, Emotion.LONELY).get(0);
     MoodRecordCard received =
         MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.LONELY).build();
     ReflectionTestUtils.setField(received, "id", notReceived.getId());
-    received.receive(null);
+    received.receive(pieceAlreadyReceived(51L, 9, Emotion.LONELY, "레이스 중 받은 메시지"));
     willReturn(List.of(received)).given(moodRecordCardRepository).findAllById(any());
     givenWaitingCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요");
 
-    assertErrorCode(() -> service.receive(USER_ID), CommonErrorCode.CONFLICT);
+    CheerReceiveResponse response = service.receive(USER_ID);
+
+    assertThat(response.patches())
+        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.LONELY, "레이스 중 받은 메시지", 9, false));
     verify(cheerRepository, never()).changeStatusIf(anyLong(), any(), any(), any());
     verify(blanketPieceRepository, never()).save(any());
   }
@@ -265,11 +289,13 @@ class CheerReceiveServiceTest {
     CheerReceiveResponse response = service.receive(USER_ID);
 
     assertThat(response.patches())
-        .containsExactly(ReceivedCheerResponse.ofCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요"));
+        .containsExactly(
+            ReceivedCheerResponse.ofCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요", 4, false));
     BlanketPiece piece = savedPieces().get(0);
     assertThat(piece.getBlanket()).isSameAs(blanket);
     assertThat(piece.getSlotIndex()).isEqualTo(4);
     assertThat(piece.getCheer().getId()).isEqualTo(7L);
+    assertThat(piece.getEmotion()).isEqualTo(Emotion.LONELY);
     assertThat(piece.getContent()).isEqualTo("산책하면 좀 나아졌어요");
     assertThat(piece.getReceivedAt()).isEqualTo(NOW);
     MoodRecordCard card = cards.get(0);
@@ -287,9 +313,10 @@ class CheerReceiveServiceTest {
     CheerReceiveResponse response = service.receive(USER_ID);
 
     assertThat(response.patches())
-        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.ANXIETY, GENERATED));
+        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.ANXIETY, GENERATED, 1, false));
     BlanketPiece piece = savedPieces().get(0);
     assertThat(piece.getCheer()).isNull();
+    assertThat(piece.getEmotion()).isEqualTo(Emotion.ANXIETY);
     assertThat(piece.getSlotIndex()).isEqualTo(1);
     assertThat(piece.getContent()).isEqualTo(GENERATED);
     assertThat(cards.get(0).getReceiveStatus()).isEqualTo(ReceiveStatus.RECEIVED);
@@ -416,9 +443,9 @@ class CheerReceiveServiceTest {
 
     assertThat(response.patches())
         .containsExactly(
-            ReceivedCheerResponse.ofDefault(Emotion.LONELY, GENERATED),
-            ReceivedCheerResponse.ofDefault(Emotion.ANXIETY, GENERATED),
-            ReceivedCheerResponse.ofCheer(7L, Emotion.TEARFUL, "울고 나니 좀 나았어요"));
+            ReceivedCheerResponse.ofDefault(Emotion.LONELY, GENERATED, 6, false),
+            ReceivedCheerResponse.ofDefault(Emotion.ANXIETY, GENERATED, 7, false),
+            ReceivedCheerResponse.ofCheer(7L, Emotion.TEARFUL, "울고 나니 좀 나았어요", 8, false));
     assertThat(savedPieces())
         .extracting(BlanketPiece::getSlotIndex, BlanketPiece::getContent)
         .containsExactly(tuple(6, GENERATED), tuple(7, GENERATED), tuple(8, "울고 나니 좀 나았어요"));
@@ -442,7 +469,7 @@ class CheerReceiveServiceTest {
     CheerReceiveResponse response = service.receive(USER_ID);
 
     assertThat(response.patches())
-        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED));
+        .containsExactly(ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED, 3, false));
     assertThat(savedPieces()).extracting(BlanketPiece::getSlotIndex).containsExactly(3);
     assertThat(pending.getReceiveStatus()).isEqualTo(ReceiveStatus.RECEIVED);
     assertThat(received.getBlanketPiece()).isNull();
@@ -465,7 +492,7 @@ class CheerReceiveServiceTest {
 
     assertThat(response.patches())
         .containsExactly(
-            ReceivedCheerResponse.ofCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요"),
+            ReceivedCheerResponse.ofCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요", 1, false),
             ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED));
     List<BlanketPiece> pieces = savedPieces();
     assertThat(pieces).hasSize(1);
@@ -502,8 +529,8 @@ class CheerReceiveServiceTest {
 
     assertThat(response.patches())
         .containsExactly(
-            ReceivedCheerResponse.ofCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요"),
-            ReceivedCheerResponse.ofCheer(8L, Emotion.LONELY, "친구에게 전화했어요"));
+            ReceivedCheerResponse.ofCheer(7L, Emotion.LONELY, "산책하면 좀 나아졌어요", 1, false),
+            ReceivedCheerResponse.ofCheer(8L, Emotion.LONELY, "친구에게 전화했어요", 2, false));
     assertThat(savedPieces()).extracting(piece -> piece.getCheer().getId()).containsExactly(7L, 8L);
     verify(cheerRepository, times(2)).findQueueCandidates(any(), any(), any(), any());
     verify(defaultMessageGenerator, never()).generate(any(), anySet());
@@ -523,8 +550,8 @@ class CheerReceiveServiceTest {
 
     assertThat(response.patches())
         .containsExactly(
-            ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED),
-            ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED));
+            ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED, 1, false),
+            ReceivedCheerResponse.ofDefault(Emotion.TEARFUL, GENERATED, 2, false));
     verify(defaultMessageGenerator, times(2)).generate(eq(Emotion.TEARFUL), anySet());
     verify(cheerRepository, never()).findQueueCandidates(any(), any(), any(), any());
   }

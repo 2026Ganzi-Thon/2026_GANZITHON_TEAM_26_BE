@@ -19,6 +19,7 @@ import com.hanol.domain.user.repository.UserRepository;
 import com.hanol.global.exception.BusinessException;
 import com.hanol.global.exception.CommonErrorCode;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -38,6 +39,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @RequiredArgsConstructor
 public class CheerService {
 
+  static final Duration SEND_COOLDOWN = Duration.ofMinutes(5);
+
   private final CheerRepository cheerRepository;
   private final CheerReviewer cheerReviewer;
   private final CheerSenderHasher cheerSenderHasher;
@@ -50,13 +53,13 @@ public class CheerService {
   /** BLK-SEND-001 보내기 가능 확인. 대기 중인 패치가 적은 감정부터, 같으면 Emotion 선언 순서. */
   @Transactional(readOnly = true)
   public CheerAvailabilityResponse getAvailability(Long userId) {
-    Optional<SendRestriction> restriction =
-        sendRestrictionRepository
-            .findBySenderHash(cheerSenderHasher.hash(userId))
-            .filter(r -> r.isRestrictedAt(LocalDateTime.now(clock)));
-    if (restriction.isPresent()) {
+    LocalDateTime now = LocalDateTime.now(clock);
+    Optional<LocalDateTime> restrictedUntil =
+        findActiveRestriction(userId).map(SendRestriction::getRestrictedUntil);
+    Optional<LocalDateTime> cooldownUntil = cooldownUntil(userId, now);
+    if (restrictedUntil.isPresent() || cooldownUntil.isPresent()) {
       return new CheerAvailabilityResponse(
-          false, restriction.get().getRestrictedUntil(), List.of());
+          false, restrictedUntil.orElse(null), cooldownUntil.orElse(null), List.of());
     }
 
     Map<Emotion, Long> waitingCounts = new EnumMap<>(Emotion.class);
@@ -72,12 +75,13 @@ public class CheerService {
             .map(EmotionQuestionGroup::from)
             .toList();
 
-    return new CheerAvailabilityResponse(true, null, questions);
+    return new CheerAvailabilityResponse(true, null, null, questions);
   }
 
   /** BLK-SEND-002 패치 검사·발송. 검수(AI)는 트랜잭션 밖에서 한다. */
   public CheerSendResponse send(Long userId, CheerSendRequest request) {
     validateNotRestricted(userId);
+    validateNotCoolingDown(userId);
     CheerReviewResult result = cheerReviewer.review(request.content());
     if (result == CheerReviewResult.CRISIS) {
       log.info("Crisis expression detected in cheer. userId={}", userId);
@@ -98,6 +102,7 @@ public class CheerService {
             .findByIdForUpdate(userId)
             .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
     validateNotRestricted(userId);
+    validateNotCoolingDown(userId);
     LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
 
     DailyStat dailyStat =
@@ -122,14 +127,29 @@ public class CheerService {
 
   /** BLK-RPT-002 보내기 제한 중이면 403. */
   private void validateNotRestricted(Long userId) {
-    LocalDateTime now = LocalDateTime.now(clock);
-    boolean restricted =
-        sendRestrictionRepository
-            .findBySenderHash(cheerSenderHasher.hash(userId))
-            .filter(r -> r.isRestrictedAt(now))
-            .isPresent();
-    if (restricted) {
+    if (findActiveRestriction(userId).isPresent()) {
       throw new BusinessException(CheerErrorCode.CHEER_SEND_RESTRICTED);
     }
+  }
+
+  /** 마지막 발송 성공 후 5분이 지나지 않았으면 429. */
+  private void validateNotCoolingDown(Long userId) {
+    if (cooldownUntil(userId, LocalDateTime.now(clock)).isPresent()) {
+      throw new BusinessException(CheerErrorCode.CHEER_COOLDOWN);
+    }
+  }
+
+  /** 날짜와 상관없이 가장 최근 발송 성공 시각 + 5분. 쿨타임이 끝났으면 empty. */
+  private Optional<LocalDateTime> cooldownUntil(Long userId, LocalDateTime now) {
+    return dailyStatRepository
+        .findLastSentAt(userId)
+        .map(t -> t.plus(SEND_COOLDOWN))
+        .filter(until -> until.isAfter(now));
+  }
+
+  private Optional<SendRestriction> findActiveRestriction(Long userId) {
+    return sendRestrictionRepository
+        .findBySenderHash(cheerSenderHasher.hash(userId))
+        .filter(r -> r.isRestrictedAt(LocalDateTime.now(clock)));
   }
 }

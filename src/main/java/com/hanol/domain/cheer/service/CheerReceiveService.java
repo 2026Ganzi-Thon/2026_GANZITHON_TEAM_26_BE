@@ -127,10 +127,7 @@ public class CheerReceiveService {
     }
 
     String senderHash = cheerSenderHasher.hash(userId);
-    Set<String> receivedDefaults =
-        blanketPieceRepository.findDefaultContents(userId).stream()
-            .map(String::strip)
-            .collect(Collectors.toSet());
+    Set<String> receivedDefaults = blanketPieceRepository.findReceivedDefaultMessages(userId);
 
     List<Target> needDefaults =
         targets.stream()

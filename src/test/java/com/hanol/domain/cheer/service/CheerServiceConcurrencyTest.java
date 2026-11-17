@@ -5,16 +5,20 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
 import com.hanol.domain.cheer.dto.request.CheerSendRequest;
+import com.hanol.domain.cheer.exception.CheerErrorCode;
 import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.user.entity.DailyStat;
 import com.hanol.domain.user.entity.User;
 import com.hanol.domain.user.repository.DailyStatRepository;
 import com.hanol.domain.user.repository.UserRepository;
+import com.hanol.global.exception.BusinessException;
+import com.hanol.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -56,8 +60,8 @@ class CheerServiceConcurrencyTest {
   }
 
   @Test
-  @DisplayName("같은 사용자가 동시에 5번 보내도 sent_count 는 5, cheers 는 5행")
-  void sentCountIsAccurateUnderConcurrency() throws Exception {
+  @DisplayName("같은 사용자가 동시에 5번 보내면 1번만 성공하고 나머지 4번은 429_CHEER_COOLDOWN")
+  void onlyOneSendSucceedsUnderConcurrency() throws Exception {
     given(cheerReviewer.review(anyString())).willReturn(CheerReviewResult.NORMAL);
     userId =
         userRepository
@@ -68,6 +72,8 @@ class CheerServiceConcurrencyTest {
     CountDownLatch ready = new CountDownLatch(THREAD_COUNT);
     CountDownLatch start = new CountDownLatch(1);
     List<Future<?>> futures = new ArrayList<>();
+    int successCount = 0;
+    List<ErrorCode> errorCodes = new ArrayList<>();
 
     try {
       for (int i = 0; i < THREAD_COUNT; i++) {
@@ -82,21 +88,29 @@ class CheerServiceConcurrencyTest {
       ready.await(5, TimeUnit.SECONDS);
       start.countDown();
       for (Future<?> future : futures) {
-        future.get(30, TimeUnit.SECONDS);
+        try {
+          future.get(30, TimeUnit.SECONDS);
+          successCount++;
+        } catch (ExecutionException e) {
+          assertThat(e.getCause()).isInstanceOf(BusinessException.class);
+          errorCodes.add(((BusinessException) e.getCause()).getErrorCode());
+        }
       }
     } finally {
       executor.shutdownNow();
     }
 
+    assertThat(successCount).isEqualTo(1);
+    assertThat(errorCodes).hasSize(THREAD_COUNT - 1).containsOnly(CheerErrorCode.CHEER_COOLDOWN);
     assertThat(dailyStatRepository.findByUserIdAndStatDate(userId, LocalDate.now(clock)))
         .get()
         .extracting(DailyStat::getSentCount)
-        .isEqualTo(THREAD_COUNT);
+        .isEqualTo(1);
     assertThat(
             jdbcTemplate.queryForObject(
                 "select count(*) from cheers where sender_hash = ? and status = 'WAITING'",
                 Long.class,
                 cheerSenderHasher.hash(userId)))
-        .isEqualTo((long) THREAD_COUNT);
+        .isEqualTo(1L);
   }
 }

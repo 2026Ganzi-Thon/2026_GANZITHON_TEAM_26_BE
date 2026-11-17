@@ -226,7 +226,12 @@ class MoodServiceTest {
     MoodRecordCard card =
         MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.LONELY).build();
     card.receive(
-        BlanketPiece.builder().slotIndex(1).content("산책하면 좀 나아졌어요").receivedAt(NOW).build());
+        BlanketPiece.builder()
+            .slotIndex(1)
+            .emotion(Emotion.LONELY)
+            .content("산책하면 좀 나아졌어요")
+            .receivedAt(NOW)
+            .build());
     given(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(RECORD_ID))
         .willReturn(List.of(card));
 
@@ -238,13 +243,13 @@ class MoodServiceTest {
   }
 
   @Test
-  @DisplayName("상세 조회에서 DEFAULT_COMFORT 카드의 message 는 null")
+  @DisplayName("상세 조회에서 DEFAULT_COMFORT 카드는 저장된 기본위로문구를 message 로 내려준다")
   void getRecordMessageOfDefaultComfortCard() {
     MoodRecord record = record(USER_ID);
     given(moodRecordRepository.findById(RECORD_ID)).willReturn(Optional.of(record));
     MoodRecordCard card =
         MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.TEARFUL).build();
-    card.receiveDefaultComfort();
+    card.receiveDefaultComfort("힘들었겠다, 그래도 오늘 하루 버텨냈어요");
     given(moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(RECORD_ID))
         .willReturn(List.of(card));
 
@@ -252,7 +257,8 @@ class MoodServiceTest {
 
     assertThat(response.patches())
         .containsExactly(
-            new MoodDetailPatchResponse("TEARFUL", ReceiveStatus.DEFAULT_COMFORT, null));
+            new MoodDetailPatchResponse(
+                "TEARFUL", ReceiveStatus.DEFAULT_COMFORT, "힘들었겠다, 그래도 오늘 하루 버텨냈어요"));
   }
 
   @Test
