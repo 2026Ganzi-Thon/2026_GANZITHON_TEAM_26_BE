@@ -67,6 +67,12 @@ cheerSend:
           application/json:
             schema:
               $ref: "../components/common.yaml#/BadRequestError"
+      "403":
+        description: 신고 누적으로 보내기 제한 중(BLK-RPT-002)
+        content:
+          application/json:
+            schema:
+              $ref: "../components/common.yaml#/ForbiddenError"
       "429":
         description: 오늘 보낼 수 있는 개수 소진(0개)
         content:
@@ -86,7 +92,12 @@ schemas:
     properties:
       sendable:
         type: boolean
-        description: 오늘 보낼 수 있는 개수가 0개면 false
+        description: 오늘 보낼 수 있는 개수가 0개이거나 보내기 제한(BLK-RPT-002) 중이면 false
+      restrictedUntil:
+        type: string
+        format: date-time
+        nullable: true
+        description: 보내기 제한(BLK-RPT-002)이 풀리는 시각. 제한 중이 아니면 null. 제한 중이면 questions 는 빈 배열
       remainingSendableCount:
         type: integer
       questions:

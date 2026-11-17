@@ -19,8 +19,10 @@ import com.hanol.domain.cheer.dto.response.ReceivedCheerResponse;
 import com.hanol.domain.cheer.entity.Cheer;
 import com.hanol.domain.cheer.entity.CheerReport;
 import com.hanol.domain.cheer.entity.CheerStatus;
+import com.hanol.domain.cheer.entity.SendRestriction;
 import com.hanol.domain.cheer.repository.CheerReportRepository;
 import com.hanol.domain.cheer.repository.CheerRepository;
+import com.hanol.domain.cheer.repository.SendRestrictionRepository;
 import com.hanol.domain.mood.entity.Emotion;
 import com.hanol.domain.mood.entity.MoodRecord;
 import com.hanol.domain.mood.entity.MoodRecordCard;
@@ -46,8 +48,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -67,18 +68,20 @@ class CheerReportServiceTest {
 
   @Mock private CheerRepository cheerRepository;
   @Mock private CheerReportRepository cheerReportRepository;
+  @Mock private SendRestrictionRepository sendRestrictionRepository;
   @Mock private BlanketPieceRepository blanketPieceRepository;
   @Mock private MoodRecordCardRepository moodRecordCardRepository;
   @Mock private UserRepository userRepository;
   @Mock private CheerSenderHasher cheerSenderHasher;
   @Mock private DefaultCheerMessageGenerator defaultMessageGenerator;
-  @Mock private TransactionTemplate transactionTemplate;
+  @Mock private PlatformTransactionManager transactionManager;
 
   private CheerReportService service;
   private User user;
   private Cheer reported;
   private BlanketPiece piece;
   private MoodRecordCard card;
+  private SendRestriction restriction;
 
   @BeforeEach
   void setUp() {
@@ -86,6 +89,7 @@ class CheerReportServiceTest {
         new CheerReportService(
             cheerRepository,
             cheerReportRepository,
+            sendRestrictionRepository,
             blanketPieceRepository,
             moodRecordCardRepository,
             userRepository,
@@ -93,7 +97,7 @@ class CheerReportServiceTest {
             defaultMessageGenerator,
             new CheerFallbackMessages(),
             Clock.fixed(NOW_INSTANT, ZONE),
-            transactionTemplate);
+            transactionManager);
     user = User.builder().email("user@example.com").password("encoded").build();
     ReflectionTestUtils.setField(user, "id", USER_ID);
 
@@ -111,12 +115,9 @@ class CheerReportServiceTest {
     card = MoodRecordCard.builder().moodRecord(record).cardOrder(1).emotion(Emotion.LONELY).build();
     card.receive(reported.getContent(), piece);
 
-    given(transactionTemplate.execute(any()))
-        .willAnswer(
-            invocation -> {
-              TransactionCallback<?> callback = invocation.getArgument(0);
-              return callback.doInTransaction(null);
-            });
+    restriction = SendRestriction.builder().senderHash(REPORTED_HASH).build();
+    given(sendRestrictionRepository.findBySenderHashForUpdate(REPORTED_HASH))
+        .willReturn(Optional.of(restriction));
     given(cheerSenderHasher.hash(USER_ID)).willReturn(MY_HASH);
     given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(user));
     given(blanketPieceRepository.findDefaultContents(USER_ID)).willReturn(List.of());
@@ -167,7 +168,7 @@ class CheerReportServiceTest {
     given(cheerRepository.findById(CHEER_ID)).willReturn(Optional.empty());
 
     assertErrorCode(CommonErrorCode.NOT_FOUND);
-    verify(transactionTemplate, never()).execute(any());
+    verify(transactionManager, never()).getTransaction(any());
   }
 
   @Test
@@ -176,7 +177,7 @@ class CheerReportServiceTest {
     ReflectionTestUtils.setField(reported, "status", CheerStatus.HIDDEN);
 
     assertErrorCode(CommonErrorCode.CONFLICT);
-    verify(transactionTemplate, never()).execute(any());
+    verify(transactionManager, never()).getTransaction(any());
   }
 
   @Test
@@ -186,7 +187,7 @@ class CheerReportServiceTest {
         .willReturn(Optional.empty());
 
     assertErrorCode(CommonErrorCode.FORBIDDEN);
-    verify(transactionTemplate, never()).execute(any());
+    verify(transactionManager, never()).getTransaction(any());
   }
 
   @Test
@@ -285,5 +286,55 @@ class CheerReportServiceTest {
     assertThat(response.replaced().message()).isEqualTo("새 패치");
     assertThat(piece.getContent()).isEqualTo("새 패치");
     verify(cheerReportRepository).save(any());
+  }
+
+  @Test
+  @DisplayName("발신자의 신고가 3번이 되면 지금부터 24시간 보내기 제한")
+  void restrictSenderAtThirdReport() {
+    given(
+            cheerReportRepository.countBySenderHashAndReportedAtAfter(
+                REPORTED_HASH, NOW.minusDays(30)))
+        .willReturn(3L);
+
+    service.report(USER_ID, CHEER_ID);
+
+    verify(sendRestrictionRepository).insertIfAbsent(REPORTED_HASH, NOW);
+    assertThat(restriction.getRestrictedUntil()).isEqualTo(NOW.plusHours(24));
+  }
+
+  @Test
+  @DisplayName("발신자의 신고가 2번이면 제한하지 않는다")
+  void doNotRestrictBelowThreshold() {
+    given(
+            cheerReportRepository.countBySenderHashAndReportedAtAfter(
+                REPORTED_HASH, NOW.minusDays(30)))
+        .willReturn(2L);
+
+    service.report(USER_ID, CHEER_ID);
+
+    assertThat(restriction.getRestrictedUntil()).isNull();
+  }
+
+  @Test
+  @DisplayName("이미 제한 중이면 신고 수를 세지 않고 해제 시각도 그대로")
+  void keepRestrictionWhenAlreadyRestricted() {
+    restriction.restrictUntil(NOW.plusHours(3));
+
+    service.report(USER_ID, CHEER_ID);
+
+    verify(cheerReportRepository, never()).countBySenderHashAndReportedAtAfter(any(), any());
+    assertThat(restriction.getRestrictedUntil()).isEqualTo(NOW.plusHours(3));
+  }
+
+  @Test
+  @DisplayName("지난 해제 시각이 30일 안이면 그 시각 이후 신고만 센다")
+  void countSinceLastRestrictionEnd() {
+    restriction.restrictUntil(NOW.minusDays(5));
+
+    service.report(USER_ID, CHEER_ID);
+
+    verify(cheerReportRepository)
+        .countBySenderHashAndReportedAtAfter(REPORTED_HASH, NOW.minusDays(5));
+    assertThat(restriction.getRestrictedUntil()).isEqualTo(NOW.minusDays(5));
   }
 }

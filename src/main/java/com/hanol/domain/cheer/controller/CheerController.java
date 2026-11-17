@@ -30,8 +30,9 @@ public class CheerController {
 
   /** BLK-SEND-001 보내기 가능 확인. */
   @GetMapping("/availability")
-  public ApiResponse<CheerAvailabilityResponse> getAvailability() {
-    return ApiResponse.ok(cheerService.getAvailability());
+  public ApiResponse<CheerAvailabilityResponse> getAvailability(
+      @AuthenticationPrincipal Long userId) {
+    return ApiResponse.ok(cheerService.getAvailability(userId));
   }
 
   /** BLK-SEND-002 패치 검사·발송. 위기여도 200 이다. */
