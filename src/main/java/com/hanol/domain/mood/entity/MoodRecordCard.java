@@ -54,9 +54,6 @@ public class MoodRecordCard extends BaseTimeEntity {
   @Column(name = "receive_status", nullable = false, length = 20)
   private ReceiveStatus receiveStatus;
 
-  @Column(name = "received_message", length = 50)
-  private String receivedMessage;
-
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "blanket_piece_id")
   private BlanketPiece blanketPiece;
@@ -70,9 +67,8 @@ public class MoodRecordCard extends BaseTimeEntity {
   }
 
   /** 1~3번째 기록으로 받은 패치(또는 기본 메시지). 담요 칸과 연결한다. */
-  public void receive(String message, BlanketPiece piece) {
+  public void receive(BlanketPiece piece) {
     this.receiveStatus = ReceiveStatus.RECEIVED;
-    this.receivedMessage = message;
     this.blanketPiece = piece;
   }
 

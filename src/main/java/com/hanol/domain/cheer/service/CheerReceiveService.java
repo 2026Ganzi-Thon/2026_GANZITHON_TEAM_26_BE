@@ -25,14 +25,19 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -40,7 +45,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** BLK-RCV-001·002 패치 받기, BLK-STACK-001 담요 적립. AI(기본 메시지 생성)는 트랜잭션 밖에서만 부른다. */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class CheerReceiveService {
 
   static final int QUEUE_RECEIVE_MAX_SEQ = 3;
@@ -57,91 +61,186 @@ public class CheerReceiveService {
   private final CheerFallbackMessages fallbackMessages;
   private final Clock clock;
   private final TransactionTemplate transactionTemplate;
+  private final Executor executor;
+
+  public CheerReceiveService(
+      MoodRecordRepository moodRecordRepository,
+      MoodRecordCardRepository moodRecordCardRepository,
+      CheerRepository cheerRepository,
+      BlanketRepository blanketRepository,
+      BlanketPieceRepository blanketPieceRepository,
+      UserRepository userRepository,
+      CheerSenderHasher cheerSenderHasher,
+      DefaultCheerMessageGenerator defaultMessageGenerator,
+      CheerFallbackMessages fallbackMessages,
+      Clock clock,
+      TransactionTemplate transactionTemplate,
+      @Qualifier("applicationTaskExecutor") Executor executor) {
+    this.moodRecordRepository = moodRecordRepository;
+    this.moodRecordCardRepository = moodRecordCardRepository;
+    this.cheerRepository = cheerRepository;
+    this.blanketRepository = blanketRepository;
+    this.blanketPieceRepository = blanketPieceRepository;
+    this.userRepository = userRepository;
+    this.cheerSenderHasher = cheerSenderHasher;
+    this.defaultMessageGenerator = defaultMessageGenerator;
+    this.fallbackMessages = fallbackMessages;
+    this.clock = clock;
+    this.transactionTemplate = transactionTemplate;
+    this.executor = executor;
+  }
+
+  /** 받을 카드. 처리 방식은 카드가 속한 기록의 dailySeq 로 정한다. */
+  private record Target(Long cardId, Long recordId, int dailySeq, Emotion emotion) {
+
+    boolean fromQueue() {
+      return dailySeq <= QUEUE_RECEIVE_MAX_SEQ;
+    }
+  }
 
   public CheerReceiveResponse receive(Long userId) {
-    MoodRecord record =
+    List<MoodRecord> records =
         moodRecordRepository
-            .findFirstByUserIdAndRecordDateOrderByDailySeqDesc(userId, LocalDate.now(clock))
-            .orElseThrow(() -> new BusinessException(CommonErrorCode.BAD_REQUEST));
-    List<MoodRecordCard> cards =
-        moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(record.getId());
-    validateReceivable(cards);
+            .findByUserIdAndRecordDateOrderByRecordedAtAsc(userId, LocalDate.now(clock))
+            .stream()
+            .sorted(Comparator.comparingInt(MoodRecord::getDailySeq))
+            .toList();
+    if (records.isEmpty()) {
+      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+    }
 
-    boolean fromQueue = record.getDailySeq() <= QUEUE_RECEIVE_MAX_SEQ;
+    List<Target> targets = new ArrayList<>();
+    for (MoodRecord record : records) {
+      for (MoodRecordCard card :
+          moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(record.getId())) {
+        if (card.getReceiveStatus() == ReceiveStatus.NOT_RECEIVED) {
+          targets.add(
+              new Target(card.getId(), record.getId(), record.getDailySeq(), card.getEmotion()));
+        }
+      }
+    }
+    if (targets.isEmpty()) {
+      throw new BusinessException(CommonErrorCode.CONFLICT);
+    }
+
     String senderHash = cheerSenderHasher.hash(userId);
     Set<String> receivedDefaults =
         blanketPieceRepository.findDefaultContents(userId).stream()
             .map(String::strip)
             .collect(Collectors.toSet());
 
-    Map<Emotion, String> defaults = new EnumMap<>(Emotion.class);
-    for (MoodRecordCard card : cards) {
-      Emotion emotion = card.getEmotion();
-      if (!fromQueue
-          || !cheerRepository.existsByTargetEmotionAndStatusAndSenderHashNot(
-              emotion, CheerStatus.WAITING, senderHash)) {
-        defaults.put(emotion, defaultMessageGenerator.generate(emotion, receivedDefaults));
-      }
-    }
+    List<Target> needDefaults =
+        targets.stream()
+            .filter(
+                target ->
+                    !target.fromQueue()
+                        || !cheerRepository.existsByTargetEmotionAndStatusAndSenderHashNot(
+                            target.emotion(), CheerStatus.WAITING, senderHash))
+            .toList();
+    Map<Long, String> defaults = generateDefaults(needDefaults, receivedDefaults);
 
     List<ReceivedCheerResponse> patches =
         transactionTemplate.execute(
-            status ->
-                fromQueue
-                    ? receiveFromQueue(
-                        userId, record.getId(), senderHash, defaults, receivedDefaults)
-                    : receiveDefaultComfort(userId, record.getId(), defaults));
+            status -> receiveCards(userId, targets, senderHash, defaults, receivedDefaults));
     return new CheerReceiveResponse(patches);
   }
 
-  private List<ReceivedCheerResponse> receiveDefaultComfort(
-      Long userId, Long recordId, Map<Emotion, String> defaults) {
-    lockUser(userId);
-    List<MoodRecordCard> cards = lockedCards(recordId);
-
-    List<ReceivedCheerResponse> patches = new ArrayList<>();
-    for (MoodRecordCard card : cards) {
-      card.receiveDefaultComfort();
-      patches.add(
-          ReceivedCheerResponse.ofDefault(card.getEmotion(), defaults.get(card.getEmotion())));
+  /** 카드별 기본 메시지를 동시에 만들고 모두 끝날 때까지 기다린다. */
+  private Map<Long, String> generateDefaults(List<Target> targets, Set<String> receivedDefaults) {
+    Map<Long, CompletableFuture<String>> futures = new LinkedHashMap<>();
+    for (Target target : targets) {
+      futures.put(
+          target.cardId(),
+          CompletableFuture.supplyAsync(
+              () -> defaultMessageGenerator.generate(target.emotion(), receivedDefaults),
+              executor));
     }
-    log.info("Default comfort received. recordId={}, cardCount={}", recordId, cards.size());
-    return patches;
+    try {
+      CompletableFuture.allOf(futures.values().toArray(CompletableFuture[]::new)).join();
+    } catch (CompletionException exception) {
+      if (exception.getCause() instanceof RuntimeException cause) {
+        throw cause;
+      }
+      throw exception;
+    }
+
+    Map<Long, String> defaults = new HashMap<>();
+    futures.forEach((cardId, future) -> defaults.put(cardId, future.join()));
+    return defaults;
   }
 
-  private List<ReceivedCheerResponse> receiveFromQueue(
+  private List<ReceivedCheerResponse> receiveCards(
       Long userId,
-      Long recordId,
+      List<Target> targets,
       String senderHash,
-      Map<Emotion, String> defaults,
+      Map<Long, String> defaults,
       Set<String> receivedDefaults) {
-    User user = lockUser(userId);
-    List<MoodRecordCard> cards = lockedCards(recordId);
+    final User user = lockUser(userId);
+
+    // 사용자 잠금 뒤에 다시 읽어 409 를 재검사한다. 그 사이 기록이 지워졌으면 400.
+    Map<Long, MoodRecordCard> reloaded =
+        moodRecordCardRepository.findAllById(targets.stream().map(Target::cardId).toList()).stream()
+            .collect(Collectors.toMap(MoodRecordCard::getId, Function.identity()));
+    if (reloaded.isEmpty()) {
+      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
+    }
+    List<Target> receivable =
+        targets.stream()
+            .filter(
+                target -> {
+                  MoodRecordCard card = reloaded.get(target.cardId());
+                  return card != null && card.getReceiveStatus() == ReceiveStatus.NOT_RECEIVED;
+                })
+            .toList();
+    if (receivable.isEmpty()) {
+      throw new BusinessException(CommonErrorCode.CONFLICT);
+    }
     LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
 
-    // 사용자끼리 서로 다른 순서로 잠그다 교착되지 않도록 감정 선언 순서로 꺼낸다.
-    Map<Emotion, Cheer> claimed = new EnumMap<>(Emotion.class);
-    cards.stream()
-        .map(MoodRecordCard::getEmotion)
-        .filter(emotion -> !defaults.containsKey(emotion))
-        .sorted(Comparator.naturalOrder())
+    // 사용자끼리 서로 다른 순서로 잠그다 교착되지 않도록 감정 선언 순서, 같은 감정이면 카드 id 순으로 꺼낸다.
+    Map<Long, Cheer> claimed = new HashMap<>();
+    receivable.stream()
+        .filter(target -> target.fromQueue() && !defaults.containsKey(target.cardId()))
+        .sorted(Comparator.comparing(Target::emotion).thenComparing(Target::cardId))
         .forEach(
-            emotion ->
-                claim(emotion, senderHash, now).ifPresent(cheer -> claimed.put(emotion, cheer)));
+            target ->
+                claim(target.emotion(), senderHash, now)
+                    .ifPresent(cheer -> claimed.put(target.cardId(), cheer)));
 
+    boolean hasQueueCard = receivable.stream().anyMatch(Target::fromQueue);
     Blanket blanket =
-        blanketRepository.findFirstByUserIdAndCompletedAtIsNullOrderByIdDesc(userId).orElse(null);
+        hasQueueCard
+            ? blanketRepository
+                .findFirstByUserIdAndCompletedAtIsNullOrderByIdDesc(userId)
+                .orElse(null)
+            : null;
     int filled = blanket == null ? 0 : blanketPieceRepository.countByBlanketId(blanket.getId());
 
     List<ReceivedCheerResponse> patches = new ArrayList<>();
-    for (MoodRecordCard card : cards) {
-      Emotion emotion = card.getEmotion();
-      Cheer cheer = claimed.get(emotion);
+    List<Long> queueRecordIds = new ArrayList<>();
+    List<Long> comfortRecordIds = new ArrayList<>();
+    int queueCardCount = 0;
+    int comfortCardCount = 0;
+    for (Target target : receivable) {
+      MoodRecordCard card = reloaded.get(target.cardId());
+      Emotion emotion = target.emotion();
+
+      if (!target.fromQueue()) {
+        card.receiveDefaultComfort();
+        patches.add(ReceivedCheerResponse.ofDefault(emotion, defaults.get(target.cardId())));
+        comfortCardCount++;
+        if (!comfortRecordIds.contains(target.recordId())) {
+          comfortRecordIds.add(target.recordId());
+        }
+        continue;
+      }
+
+      Cheer cheer = claimed.get(target.cardId());
       String message;
       if (cheer != null) {
         message = cheer.getContent();
-      } else if (defaults.containsKey(emotion)) {
-        message = defaults.get(emotion);
+      } else if (defaults.containsKey(target.cardId())) {
+        message = defaults.get(target.cardId());
       } else {
         log.info("Cheer claim lost, using fallback. emotion={}", emotion);
         message = fallbackMessages.pick(emotion, receivedDefaults);
@@ -167,17 +266,30 @@ public class CheerReceiveService {
         blanket = null;
       }
 
-      card.receive(message, piece);
+      card.receive(piece);
       patches.add(
           cheer != null
               ? ReceivedCheerResponse.ofCheer(cheer.getId(), emotion, message)
               : ReceivedCheerResponse.ofDefault(emotion, message));
+      queueCardCount++;
+      if (!queueRecordIds.contains(target.recordId())) {
+        queueRecordIds.add(target.recordId());
+      }
     }
-    log.info(
-        "Cheers received. recordId={}, cardCount={}, claimedCount={}",
-        recordId,
-        cards.size(),
-        claimed.size());
+
+    if (queueCardCount > 0) {
+      log.info(
+          "Cheers received. recordIds={}, cardCount={}, claimedCount={}",
+          queueRecordIds,
+          queueCardCount,
+          claimed.size());
+    }
+    if (comfortCardCount > 0) {
+      log.info(
+          "Default comfort received. recordIds={}, cardCount={}",
+          comfortRecordIds,
+          comfortCardCount);
+    }
     return patches;
   }
 
@@ -200,22 +312,5 @@ public class CheerReceiveService {
     return userRepository
         .findByIdForUpdate(userId)
         .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
-  }
-
-  /** 사용자 잠금 뒤에 다시 읽어 409 를 재검사한다. 그 사이 기록이 지워졌으면 400. */
-  private List<MoodRecordCard> lockedCards(Long recordId) {
-    List<MoodRecordCard> cards =
-        moodRecordCardRepository.findByMoodRecordIdOrderByCardOrderAsc(recordId);
-    validateReceivable(cards);
-    return cards;
-  }
-
-  private static void validateReceivable(List<MoodRecordCard> cards) {
-    if (cards.isEmpty()) {
-      throw new BusinessException(CommonErrorCode.BAD_REQUEST);
-    }
-    if (cards.stream().anyMatch(card -> card.getReceiveStatus() != ReceiveStatus.NOT_RECEIVED)) {
-      throw new BusinessException(CommonErrorCode.CONFLICT);
-    }
   }
 }
