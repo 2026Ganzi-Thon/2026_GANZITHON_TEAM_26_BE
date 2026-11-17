@@ -256,6 +256,7 @@ public class CheerReceiveService {
                   .blanket(blanket)
                   .slotIndex(filled + 1)
                   .cheer(cheer)
+                  .emotion(emotion)
                   .content(message)
                   .receivedAt(now)
                   .build());
