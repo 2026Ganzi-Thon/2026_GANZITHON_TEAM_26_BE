@@ -192,7 +192,9 @@ public class MoodService {
                     new MoodDetailPatchResponse(
                         card.getEmotion().name(),
                         card.getReceiveStatus(),
-                        card.getReceivedMessage()))
+                        card.getBlanketPiece() == null
+                            ? null
+                            : card.getBlanketPiece().getContent()))
             .toList(),
         story);
   }
