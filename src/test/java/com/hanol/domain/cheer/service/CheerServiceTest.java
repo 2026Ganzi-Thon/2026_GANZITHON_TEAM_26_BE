@@ -233,7 +233,9 @@ class CheerServiceTest {
     CheerSendResponse response = cheerService.send(USER_ID, REQUEST);
 
     assertThat(response.crisisDetected()).isTrue();
-    verifyNoInteractions(transactionTemplate, userRepository, dailyStatRepository, cheerRepository);
+    verifyNoInteractions(transactionTemplate, userRepository, cheerRepository);
+    verify(dailyStatRepository, never()).findByUserIdAndStatDate(any(), any());
+    verify(dailyStatRepository, never()).save(any());
   }
 
   @ParameterizedTest
@@ -249,7 +251,47 @@ class CheerServiceTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(CheerErrorCode.valueOf("CHEER_" + result.name()));
-    verifyNoInteractions(transactionTemplate, userRepository, dailyStatRepository, cheerRepository);
+    verifyNoInteractions(transactionTemplate, userRepository, cheerRepository);
+    verify(dailyStatRepository, never()).findByUserIdAndStatDate(any(), any());
+    verify(dailyStatRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("마지막 발송이 3분 전이면 sendable false, 쿨타임 끝 시각, 빈 질문 목록이고 대기 수를 세지 않는다")
+  void availabilityWhenCoolingDown() {
+    given(dailyStatRepository.findLastSentAt(USER_ID)).willReturn(Optional.of(NOW.minusMinutes(3)));
+
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
+
+    assertThat(response.sendable()).isFalse();
+    assertThat(response.cooldownUntil()).isEqualTo(NOW.minusMinutes(3).plusMinutes(5));
+    assertThat(response.questions()).isEmpty();
+    verify(cheerRepository, never()).countGroupByTargetEmotion(any());
+  }
+
+  @Test
+  @DisplayName("마지막 발송이 5분 넘게 지났으면 sendable true, cooldownUntil null, 질문 목록이 있다")
+  void availabilityAfterCooldown() {
+    given(dailyStatRepository.findLastSentAt(USER_ID)).willReturn(Optional.of(NOW.minusMinutes(6)));
+    given(cheerRepository.countGroupByTargetEmotion(CheerStatus.WAITING)).willReturn(List.of());
+
+    CheerAvailabilityResponse response = cheerService.getAvailability(USER_ID);
+
+    assertThat(response.sendable()).isTrue();
+    assertThat(response.cooldownUntil()).isNull();
+    assertThat(response.questions()).hasSize(11);
+  }
+
+  @Test
+  @DisplayName("쿨타임 중에 보내면 429_CHEER_COOLDOWN 이고 검수하지 않는다")
+  void rejectSendWhenCoolingDown() {
+    given(dailyStatRepository.findLastSentAt(USER_ID)).willReturn(Optional.of(NOW.minusMinutes(3)));
+
+    assertThatThrownBy(() -> cheerService.send(USER_ID, REQUEST))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(CheerErrorCode.CHEER_COOLDOWN);
+    verify(cheerReviewer, never()).review(any());
   }
 
   private void givenRestriction(LocalDateTime restrictedUntil) {
