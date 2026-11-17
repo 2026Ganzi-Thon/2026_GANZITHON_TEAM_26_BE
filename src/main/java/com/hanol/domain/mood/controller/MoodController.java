@@ -9,6 +9,7 @@ import com.hanol.domain.mood.dto.response.MoodRecordCreateResponse;
 import com.hanol.domain.mood.dto.response.StoryCheckResponse;
 import com.hanol.domain.mood.service.MoodService;
 import com.hanol.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/moods")
+@Tag(name = "CRD")
 @RequiredArgsConstructor
 public class MoodController {
 

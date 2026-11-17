@@ -12,6 +12,7 @@ import com.hanol.domain.auth.service.EmailVerificationService;
 import com.hanol.domain.auth.service.TokenService;
 import com.hanol.global.response.ApiResponse;
 import com.hanol.global.security.BearerTokenResolver;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@Tag(name = "USR")
 @RequiredArgsConstructor
 public class AuthController {
 

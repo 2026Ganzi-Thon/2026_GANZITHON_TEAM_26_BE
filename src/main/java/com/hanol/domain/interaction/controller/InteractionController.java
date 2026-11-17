@@ -6,6 +6,7 @@ import com.hanol.domain.interaction.dto.response.RestRoomSignalResponse;
 import com.hanol.domain.interaction.service.InteractionMapService;
 import com.hanol.domain.interaction.service.RestRoomService;
 import com.hanol.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/interactions")
+@Tag(name = "ITR")
 @RequiredArgsConstructor
 public class InteractionController {
 
