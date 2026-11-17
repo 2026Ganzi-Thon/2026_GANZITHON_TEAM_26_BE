@@ -31,7 +31,7 @@
 | Status Code | Status Name           | Description                 |
 | ----------- | --------------------- | --------------------------- |
 | 401         | UNAUTHORIZED          | 로그인하지 않은 상태로 접근 |
-| 400         | BAD_REQUEST           | 최근 24시간 이내 기록 없음  |
+| 400         | NO_RECENT_MOOD_RECORD | 최근 24시간 이내 기록 없음  |
 | 500         | INTERNAL_SERVER_ERROR | 인원 집계 조회 실패         |
 
 **구현 메모 (백엔드 담당)**

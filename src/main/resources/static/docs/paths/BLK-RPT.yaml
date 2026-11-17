@@ -3,7 +3,7 @@ cheerReport:
     tags: [BLK]
     operationId: BLK-RPT-001
     summary: 패치 신고
-    description: 기본 메시지(isDefault true)는 신고 대상이 아니다. 신고 사유는 받지 않는다.
+    description: 신고 사유는 받지 않는다.
     parameters:
       - name: cheerId
         in: path
@@ -29,12 +29,6 @@ cheerReport:
           application/json:
             schema:
               $ref: "../components/common.yaml#/UnauthorizedError"
-      "400":
-        description: 신고 대상이 기본 메시지(4번째 이후)
-        content:
-          application/json:
-            schema:
-              $ref: "../components/common.yaml#/BadRequestError"
       "403":
         description: 본인이 받지 않은 패치를 신고 시도
         content:
@@ -48,11 +42,11 @@ cheerReport:
             schema:
               $ref: "../components/common.yaml#/NotFoundError"
       "409":
-        description: 이미 신고 처리된 메시지
+        description: 이미 신고 처리된 메시지 — 도메인 전용
         content:
           application/json:
             schema:
-              $ref: "../components/common.yaml#/ConflictError"
+              $ref: "#/schemas/CheerAlreadyReportedError"
 
 schemas:
   CheerReportData:
@@ -60,3 +54,13 @@ schemas:
     properties:
       replaced:
         $ref: "./BLK-RCV.yaml#/schemas/ReceivedCheer"
+
+  CheerAlreadyReportedError:
+    type: object
+    properties:
+      code:
+        type: string
+        example: 409_CHEER_ALREADY_REPORTED
+      message:
+        type: string
+        example: 이미 신고 처리된 메시지예요.
