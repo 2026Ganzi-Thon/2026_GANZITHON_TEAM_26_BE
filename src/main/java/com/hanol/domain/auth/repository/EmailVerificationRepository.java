@@ -78,6 +78,11 @@ public class EmailVerificationRepository {
     redisTemplate.delete(SEND_COUNT_KEY_PREFIX + email);
   }
 
+  /** 발송에 실패한 시도는 횟수에서 뺀다. 만료(TTL)는 그대로 둔다. */
+  public void decreaseSendCount(String email) {
+    redisTemplate.opsForValue().decrement(SEND_COUNT_KEY_PREFIX + email);
+  }
+
   /** 인증 실패 횟수를 1 늘리고 늘어난 값을 돌려준다. 만료는 첫 실패 기준. */
   public long increaseVerifyFailCount(String email, Duration window) {
     return increment(VERIFY_FAIL_KEY_PREFIX + email, window);

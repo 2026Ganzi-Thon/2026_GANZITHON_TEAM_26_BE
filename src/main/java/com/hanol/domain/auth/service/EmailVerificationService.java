@@ -32,7 +32,7 @@ public class EmailVerificationService {
   private final EmailVerificationRepository emailVerificationRepository;
   private final MailService mailService;
 
-  /** 인증번호를 저장하고 메일로 보낸다. 발송에 실패하면 저장한 코드를 지우고 500_MAIL_SEND_FAILED. */
+  /** 인증번호를 저장하고 메일로 보낸다. 발송에 실패하면 저장한 코드·발송 횟수를 되돌리고 500_EMAIL_SEND_FAILED. */
   public void sendCode(String rawEmail) {
     String email = EmailNormalizer.normalize(rawEmail);
     checkNotBlocked(email);
@@ -53,8 +53,9 @@ public class EmailVerificationService {
       mailService.sendVerificationCode(email, code);
     } catch (MailException exception) {
       emailVerificationRepository.deleteCode(email);
+      emailVerificationRepository.decreaseSendCount(email);
       log.error("인증 메일 발송 실패", exception);
-      throw new BusinessException(AuthDomainErrorCode.MAIL_SEND_FAILED);
+      throw new BusinessException(AuthDomainErrorCode.EMAIL_SEND_FAILED);
     }
   }
 

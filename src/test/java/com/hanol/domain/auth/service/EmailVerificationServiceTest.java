@@ -103,7 +103,7 @@ class EmailVerificationServiceTest {
   }
 
   @Test
-  @DisplayName("메일 발송에 실패하면 저장한 코드를 지우고 500_MAIL_SEND_FAILED")
+  @DisplayName("메일 발송에 실패하면 저장한 코드·발송 횟수를 되돌리고 500_EMAIL_SEND_FAILED")
   void sendCodeMailFailure() {
     given(userRepository.existsByEmail(EMAIL)).willReturn(false);
     given(emailVerificationRepository.increaseSendCount(eq(EMAIL), any())).willReturn(1L);
@@ -112,8 +112,9 @@ class EmailVerificationServiceTest {
         .sendVerificationCode(eq(EMAIL), anyString());
 
     assertErrorCode(
-        () -> emailVerificationService.sendCode(EMAIL), AuthDomainErrorCode.MAIL_SEND_FAILED);
+        () -> emailVerificationService.sendCode(EMAIL), AuthDomainErrorCode.EMAIL_SEND_FAILED);
     verify(emailVerificationRepository).deleteCode(EMAIL);
+    verify(emailVerificationRepository).decreaseSendCount(EMAIL);
   }
 
   @Test
