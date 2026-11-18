@@ -46,11 +46,14 @@ public class RestRoomService {
     return new RestRoomEntryResponse((int) currentCount, toLocalDateTime(enteredAt));
   }
 
-  /** ITR-REST-001 함께 쉬는 방 신호(하트비트). 30초마다 호출된다. */
+  /** ITR-REST-001 함께 쉬는 방 신호(하트비트). 30초마다 호출된다. 퇴장했거나 신호가 끊겨 정리된 상태면 다시 받아주지 않는다. */
   public RestRoomSignalResponse signal(Long userId) {
     restRoomRepository
         .findEnteredAt(userId)
         .orElseThrow(() -> new BusinessException(InteractionErrorCode.REST_ROOM_NOT_ENTERED));
+    if (!restRoomRepository.isMember(userId)) {
+      throw new BusinessException(InteractionErrorCode.REST_ROOM_NOT_ENTERED);
+    }
 
     Instant now = Instant.now(clock);
     restRoomRepository.refreshEnteredAtTtl(userId);

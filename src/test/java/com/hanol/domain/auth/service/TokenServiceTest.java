@@ -147,6 +147,7 @@ class TokenServiceTest {
   @DisplayName("로그아웃하면 그 세션의 Access·Refresh 토큰만 지운다")
   void logout() {
     String accessToken = jwtProvider.createAccessToken(1L, SESSION_ID);
+    given(accessTokenStore.find(1L, SESSION_ID)).willReturn(Optional.of(accessToken));
 
     tokenService.logout(accessToken);
 
@@ -162,6 +163,7 @@ class TokenServiceTest {
         new JwtProvider(PROPERTIES, Clock.fixed(NOW.plus(Duration.ofHours(2)), ZONE));
     TokenService laterService =
         new TokenService(twoHoursLater, PROPERTIES, refreshTokenRepository, accessTokenStore);
+    given(accessTokenStore.find(1L, SESSION_ID)).willReturn(Optional.of(accessToken));
 
     laterService.logout(accessToken);
 
@@ -175,6 +177,18 @@ class TokenServiceTest {
     assertInvalidToken(() -> tokenService.logout(null));
     assertInvalidToken(() -> tokenService.logout("not-a-jwt"));
     assertInvalidToken(() -> tokenService.logout(jwtProvider.createRefreshToken(1L, SESSION_ID)));
+    verify(refreshTokenRepository, never()).delete(eq(1L), anyString());
+  }
+
+  @Test
+  @DisplayName("이미 로그아웃된(세션이 지워진) 토큰으로 다시 로그아웃하면 401_UNAUTHORIZED")
+  void logoutWithAlreadyLoggedOutToken() {
+    String accessToken = jwtProvider.createAccessToken(1L, SESSION_ID);
+    given(accessTokenStore.find(1L, SESSION_ID)).willReturn(Optional.empty());
+
+    assertInvalidToken(() -> tokenService.logout(accessToken));
+
+    verify(accessTokenStore, never()).delete(eq(1L), anyString());
     verify(refreshTokenRepository, never()).delete(eq(1L), anyString());
   }
 

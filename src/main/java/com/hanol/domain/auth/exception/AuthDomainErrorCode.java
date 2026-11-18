@@ -19,6 +19,7 @@ public enum AuthDomainErrorCode implements ErrorCode {
   EMAIL_CODE_NOT_FOUND(
       HttpStatus.NOT_FOUND, "404_EMAIL_CODE_NOT_FOUND", "인증번호가 만료되었거나 요청 이력이 없습니다. 다시 요청해 주세요."),
   EMAIL_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "400_EMAIL_CODE_MISMATCH", "인증번호가 일치하지 않습니다."),
+  EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "500_EMAIL_SEND_FAILED", "인증 메일을 보내지 못했습니다."),
   LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "401_LOGIN_FAILED", "이메일 또는 비밀번호가 올바르지 않습니다."),
   ACCOUNT_LOCKED(
       HttpStatus.LOCKED, "423_ACCOUNT_LOCKED", "로그인에 5번 실패해 5분 동안 로그인할 수 없어요. 잠시 후 다시 시도해 주세요.");
