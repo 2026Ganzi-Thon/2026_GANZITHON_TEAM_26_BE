@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.MailSendException;
 
 @ExtendWith(MockitoExtension.class)
 class EmailVerificationServiceTest {
@@ -101,6 +103,20 @@ class EmailVerificationServiceTest {
   }
 
   @Test
+  @DisplayName("메일 발송에 실패하면 저장한 코드를 지우고 500_MAIL_SEND_FAILED")
+  void sendCodeMailFailure() {
+    given(userRepository.existsByEmail(EMAIL)).willReturn(false);
+    given(emailVerificationRepository.increaseSendCount(eq(EMAIL), any())).willReturn(1L);
+    doThrow(new MailSendException("SMTP 연결 실패"))
+        .when(mailService)
+        .sendVerificationCode(eq(EMAIL), anyString());
+
+    assertErrorCode(
+        () -> emailVerificationService.sendCode(EMAIL), AuthDomainErrorCode.MAIL_SEND_FAILED);
+    verify(emailVerificationRepository).deleteCode(EMAIL);
+  }
+
+  @Test
   @DisplayName("차단 중이면 발송 요청도 429_EMAIL_REQUEST_LIMITED")
   void sendWhileBlocked() {
     given(emailVerificationRepository.isBlocked(EMAIL)).willReturn(true);
@@ -160,13 +176,26 @@ class EmailVerificationServiceTest {
   }
 
   @Test
-  @DisplayName("차단 중이면 맞는 번호여도 429_EMAIL_REQUEST_LIMITED")
-  void verifyWhileBlocked() {
+  @DisplayName("차단 중이어도 직전에 정상 발송된 코드로 맞추면 인증 완료")
+  void verifyWhileBlockedWithLastValidCode() {
+    given(emailVerificationRepository.findCode(EMAIL)).willReturn(Optional.of("123456"));
+
+    emailVerificationService.verifyCode(EMAIL, "123456");
+
+    verify(emailVerificationRepository).saveVerified(EMAIL, EmailVerificationService.VERIFIED_TTL);
+    verify(emailVerificationRepository, never()).isBlocked(anyString());
+  }
+
+  @Test
+  @DisplayName("차단 중이고 번호도 틀리면 429_EMAIL_REQUEST_LIMITED")
+  void verifyWhileBlockedWithWrongCode() {
+    given(emailVerificationRepository.findCode(EMAIL)).willReturn(Optional.of("123456"));
     given(emailVerificationRepository.isBlocked(EMAIL)).willReturn(true);
 
     assertErrorCode(
-        () -> emailVerificationService.verifyCode(EMAIL, "123456"),
+        () -> emailVerificationService.verifyCode(EMAIL, "654321"),
         AuthDomainErrorCode.EMAIL_REQUEST_LIMITED);
     verify(emailVerificationRepository, never()).saveVerified(anyString(), any());
+    verify(emailVerificationRepository, never()).increaseVerifyFailCount(anyString(), any());
   }
 }

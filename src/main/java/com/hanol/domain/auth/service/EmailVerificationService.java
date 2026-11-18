@@ -9,6 +9,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
 
 /** 이메일 인증 (USR-AUTH-002). Redis 작업이 중심이라 JPA 트랜잭션을 걸지 않는다. */
@@ -31,7 +32,7 @@ public class EmailVerificationService {
   private final EmailVerificationRepository emailVerificationRepository;
   private final MailService mailService;
 
-  /** 인증번호를 저장하고 바로 반환한다. 메일은 비동기로 보낸다. */
+  /** 인증번호를 저장하고 메일로 보낸다. 발송에 실패하면 저장한 코드를 지우고 500_MAIL_SEND_FAILED. */
   public void sendCode(String rawEmail) {
     String email = EmailNormalizer.normalize(rawEmail);
     checkNotBlocked(email);
@@ -48,32 +49,41 @@ public class EmailVerificationService {
 
     String code = String.format("%06d", random.nextInt(CODE_BOUND));
     emailVerificationRepository.saveCode(email, code, CODE_TTL);
-    mailService.sendVerificationCode(email, code);
+    try {
+      mailService.sendVerificationCode(email, code);
+    } catch (MailException exception) {
+      emailVerificationRepository.deleteCode(email);
+      log.error("인증 메일 발송 실패", exception);
+      throw new BusinessException(AuthDomainErrorCode.MAIL_SEND_FAILED);
+    }
   }
 
   public void verifyCode(String rawEmail, String code) {
     String email = EmailNormalizer.normalize(rawEmail);
-    checkNotBlocked(email);
-    String savedCode =
-        emailVerificationRepository
-            .findCode(email)
-            .orElseThrow(() -> new BusinessException(AuthDomainErrorCode.EMAIL_CODE_NOT_FOUND));
+    String savedCode = emailVerificationRepository.findCode(email).orElse(null);
 
-    if (!savedCode.equals(code)) {
-      long failCount = emailVerificationRepository.increaseVerifyFailCount(email, LIMIT_WINDOW);
-      if (failCount >= MAX_VERIFY_FAILURES) {
-        emailVerificationRepository.deleteCode(email);
-        emailVerificationRepository.deleteVerifyFailCount(email);
-        block(email);
-        throw new BusinessException(AuthDomainErrorCode.EMAIL_REQUEST_LIMITED);
-      }
-      throw new BusinessException(AuthDomainErrorCode.EMAIL_CODE_MISMATCH);
+    if (savedCode != null && savedCode.equals(code)) {
+      emailVerificationRepository.saveVerified(email, VERIFIED_TTL);
+      emailVerificationRepository.deleteCode(email);
+      emailVerificationRepository.deleteVerifyFailCount(email);
+      log.info("이메일 인증 완료");
+      return;
     }
 
-    emailVerificationRepository.saveVerified(email, VERIFIED_TTL);
-    emailVerificationRepository.deleteCode(email);
-    emailVerificationRepository.deleteVerifyFailCount(email);
-    log.info("이메일 인증 완료");
+    // 직전에 정상 발송된 코드로 맞춘 경우는 위에서 이미 통과하므로, 여기부턴 차단을 그대로 적용해도 된다.
+    checkNotBlocked(email);
+    if (savedCode == null) {
+      throw new BusinessException(AuthDomainErrorCode.EMAIL_CODE_NOT_FOUND);
+    }
+
+    long failCount = emailVerificationRepository.increaseVerifyFailCount(email, LIMIT_WINDOW);
+    if (failCount >= MAX_VERIFY_FAILURES) {
+      emailVerificationRepository.deleteCode(email);
+      emailVerificationRepository.deleteVerifyFailCount(email);
+      block(email);
+      throw new BusinessException(AuthDomainErrorCode.EMAIL_REQUEST_LIMITED);
+    }
+    throw new BusinessException(AuthDomainErrorCode.EMAIL_CODE_MISMATCH);
   }
 
   /** 회원가입 시 이메일 인증 완료 여부 확인. email 은 정규화된 값이어야 한다. */
