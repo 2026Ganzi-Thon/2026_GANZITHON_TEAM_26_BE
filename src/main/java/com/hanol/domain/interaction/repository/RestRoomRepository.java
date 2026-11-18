@@ -45,6 +45,11 @@ public class RestRoomRepository {
     redisTemplate.opsForZSet().add(MEMBERS_KEY, String.valueOf(userId), now.toEpochMilli());
   }
 
+  /** 지금 인원 집계(ZSET)에 들어있는지. 퇴장했거나 신호가 끊겨 정리된 경우 false. */
+  public boolean isMember(Long userId) {
+    return redisTemplate.opsForZSet().score(MEMBERS_KEY, String.valueOf(userId)) != null;
+  }
+
   public void remove(Long userId) {
     redisTemplate.opsForZSet().remove(MEMBERS_KEY, String.valueOf(userId));
   }
