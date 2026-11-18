@@ -68,12 +68,15 @@ public class TokenService {
     return accessToken;
   }
 
-  /** 그 세션의 Access·Refresh 토큰만 지운다. 만료된 Access 토큰으로도 로그아웃할 수 있다. */
+  /** 그 세션의 Access·Refresh 토큰만 지운다. 만료된 Access 토큰으로도 로그아웃할 수 있지만, 이미 로그아웃된(세션이 지워진) 토큰으로는 할 수 없다. */
   public void logout(String accessToken) {
     if (!StringUtils.hasText(accessToken)) {
       throw new BusinessException(AuthErrorCode.INVALID_TOKEN);
     }
     TokenClaims claims = jwtProvider.parseAllowingExpired(accessToken, TokenType.ACCESS);
+    accessTokenStore
+        .find(claims.userId(), claims.sessionId())
+        .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_TOKEN));
     accessTokenStore.delete(claims.userId(), claims.sessionId());
     refreshTokenRepository.delete(claims.userId(), claims.sessionId());
     log.info("로그아웃: userId={}", claims.userId());
